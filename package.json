@@ -1,0 +1,8 @@
+{
+  "name": "repolens",
+  "description": "TypeScript compiler API dependency for RepoLens JS/TS parsing (jsparse.js). Requires typescript@5.x; typescript@7+ does not expose the classic compiler API used here.",
+  "private": true,
+  "dependencies": {
+    "typescript": "^5.0.0"
+  }
+}
