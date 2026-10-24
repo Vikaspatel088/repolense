@@ -1,83 +1,126 @@
-# RepoLens
+# RepoLens V2 — Codebase Architecture & Dependency Intelligence
 
-RepoLens is a lightweight, local static analysis explorer for Python and JavaScript/TypeScript repositories. It scans your codebase, extracts module definitions and dependency relationships without executing any user code, builds a directed dependency graph, identifies circular dependencies (Tarjan's strongly connected components), computes change impact paths (cycle-safe BFS), and generates downloadable architecture reports.
+[![Tests](https://img.shields.io/badge/tests-24%20passed%20(1%20skipped)-success)](tests/test_repolens.py)
+[![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12%20|%203.13-blue)](https://www.python.org/)
+[![TypeScript](https://img.shields.io/badge/typescript-5.x-purple)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Security](https://img.shields.io/badge/analysis-100%25%20static%20%7C%20zero%20execution-emerald)]()
 
----
-
-## Capabilities
-
-- **Language Support**: Python (`.py`), JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`), and TypeScript (`.ts`, `.tsx`, `.mts`, `.cts`).
-- **Static Dependency Extraction**:
-  - Python: Parses AST (`ast.parse`) to detect absolute imports, relative package imports (`.`, `..`), `from ... import`, and `if __name__ == '__main__':` entry points.
-  - JavaScript/TypeScript: Uses the official TypeScript compiler AST API (`jsparse.js`) for ES module imports/exports, CommonJS `require()`, re-exports, dynamic `import()` with literal specifiers, classes, interfaces, and functions.
-- **Graph & Impact Analysis**:
-  - Directed import graph (`A -> B` means `A` imports `B`).
-  - Circular dependency detection via Tarjan's Strongly Connected Components (SCC) algorithm.
-  - Cycle-safe BFS for direct and transitive dependents (impact assessment).
-  - Fan-in (most depended-upon) and fan-out (most dependencies) ranking.
-- **Interactive UI**:
-  - Overview dashboard with language breakdown, entry points, and issue summaries.
-  - Interactive SVG force-directed dependency graph with zooming, panning, cycle highlighting, and node selection.
-  - File browser with search, line count, in/out degrees, and symbol counts.
-  - Symbol search command palette (`Ctrl+K`).
-  - Source excerpt viewer with line highlighting.
-- **Architecture Report**: One-click export of a structured Markdown summary of repository metrics, cycles, unresolved imports, and top impacted files.
+**RepoLens** is a local, static codebase architecture explorer and dependency intelligence platform for Python, JavaScript, and TypeScript repositories. It audits module definitions, maps import relationships without executing untrusted code, detects circular dependencies via Tarjan's Strongly Connected Components algorithm, calculates change blast radiuses using cycle-safe BFS, and exports audit-ready Markdown architecture reports.
 
 ---
 
-## Architecture & Analysis Workflow
+## What the Interface Looks Like
 
-1. **Scanner (`repolens/scanner.py`)**:
-   - Safely walks the target directory (`os.walk(followlinks=False)`).
-   - Enforces repository boundary validation (`os.path.realpath`).
-   - Ignores directories like `.git`, `node_modules`, `__pycache__`, virtualenvs, and build outputs.
-   - Respects `.gitignore` rules (literal paths, directory prefixes, wildcards).
-   - Enforces configurable limits: maximum 5,000 files, 1 MB per file, 60 seconds scan timeout.
-   - Does not execute or import scanned files.
-2. **Analysis Engine (`repolens/engine.py`)**:
-   - Python: Extracts AST nodes for function/class definitions, imports, and `__main__` entry-point guards.
-   - JavaScript/TypeScript: Invokes Node.js sub-process with `jsparse.js` via stdin/stdout JSON protocol using the TypeScript compiler API.
-   - Resolves module specifiers against discovered repository files.
-   - Computes graph adjacencies, reverse dependencies, cycles, and metrics.
-3. **HTTP Server (`server.py`)**:
-   - Python standard-library `ThreadingHTTPServer` binding to `127.0.0.1` (localhost only).
-   - In-memory snapshot storage (no external database required).
-   - Endpoints:
-     - `POST /api/analyze` — Initiates scan and analysis for a given path.
-     - `GET /api/snapshot` — Returns sanitized public repository snapshot.
-     - `GET /api/impact?path=<file>` — Computes transitive dependents for `<file>`.
-     - `GET /api/search?q=<term>` — Searches files and symbols.
-     - `GET /api/source?path=<file>&line=<n>` — Retrieves source lines with context.
-     - `GET /api/report` — Downloads Markdown architecture report.
-     - `GET /api/health` — Health check endpoint.
-4. **Frontend (`frontend/index.html`)**:
-   - Single-file zero-dependency interface (vanilla HTML5, CSS `@layer`, standard modern JavaScript).
-   - Served directly by the local HTTP server.
+### Overview Dashboard
+![RepoLens overview](screenshots/01-overview.png)
 
 ---
 
-## Prerequisites & Installation
+## Visual Walkthrough & Gallery
 
-### Requirements
+### 1. Interactive Dependency Graph
+Inspect force-directed import relationships, highlight circular dependency loops, zoom/pan across modules, and filter by language or connection status.
+![Dependency graph](screenshots/02-dependency-graph.png)
+
+### 2. Deep Files & Symbols Inspector
+Explore lines of code, in-degree and out-degree fan metrics, declared symbols (classes, methods, functions), and safely escaped source code excerpts with line numbers.
+![Files and source](screenshots/03-files-and-source.png)
+
+### 3. Change Blast Radius & Impact Analysis
+Calculate downstream ripple effects before refactoring. Walks reverse dependency paths using cycle-safe Breadth-First Search (BFS) to show exact propagation breadcrumbs.
+![Impact analysis](screenshots/04-impact-analysis.png)
+
+### 4. Issues & Tarjan SCC Circular Dependency Detection
+Identify recursive import knots, unresolvable relative imports, third-party library dependencies, and syntax errors.
+![Issues](screenshots/05-issues.png)
+
+---
+
+## Why Developers Use RepoLens
+
+- **Audit Complex Codebases Instantly**: Understand legacy systems and new repositories without reading thousands of files line-by-line.
+- **Prevent Circular Import Deadlocks**: Catch mutual dependency loops (`A → B → C → A`) before deployment.
+- **Refactor Safely with Blast Radius Analysis**: Know exactly which downstream files will be impacted before modifying a core module or shared utility.
+- **100% Static & Safe**: Zero execution of scanned files. No code is imported, run, or evaluated. Untrusted code cannot trigger side effects.
+- **Zero Cloud Exfiltration**: Runs on `127.0.0.1` (localhost). Source code never leaves your computer.
+
+---
+
+## Key Capabilities
+
+- **Multi-Language AST Parsing**:
+  - **Python**: Native `ast.parse` extracts classes, methods, functions, standard imports, relative package imports (`.`, `..`), and `__main__` entry-point guards.
+  - **JavaScript & TypeScript**: Powered by the official TypeScript compiler AST API (`jsparse.js`) for ES module imports/exports, CommonJS `require()`, re-exports, dynamic `import()`, interfaces, and classes.
+- **Dual Source Ingestion Modes**:
+  - **Mode 1: Local Directory**: Direct path analysis of any workspace folder.
+  - **Mode 2: Public GitHub Repository**: Shallow clone (`--depth 1`) into an isolated sandbox temporary directory, AST analysis, and automatic cleanup.
+  - **Bundled Quick-Start Fixture**: One-click "Load Sample Repository" button using a real multi-language test suite.
+- **Graph & Topology Analysis**:
+  - Directed import graph (`A → B` means `A` imports `B`).
+  - Tarjan Strongly Connected Components (SCC) cycle detection.
+  - Cycle-safe BFS impact analysis with propagation distance grouping.
+  - Fan-in (most depended-upon) and fan-out (heaviest consumer) metrics.
+- **Command Palette (`Ctrl+K` / `⌘K`)**: Instant fuzzy search across all files, functions, classes, and methods.
+- **Audit Markdown Report Export**: Generates a comprehensive architectural audit report downloadable directly from the browser.
+
+---
+
+## Architecture & How It Works
+
+```
+┌────────────────────────────────────────────────────────┐
+│                   Browser Frontend                     │
+│   (Single-file vanilla HTML5 / CSS Tokens / JS Engine) │
+└──────────────────────────▲─────────────────────────────┘
+                           │ HTTP (127.0.0.1:8765)
+┌──────────────────────────▼─────────────────────────────┐
+│               RepoLens Server (server.py)              │
+│    ThreadingHTTPServer, CSP headers, origin check,     │
+│       in-memory snapshots, temporary sandbox manager   │
+└──────────────────────────▲─────────────────────────────┘
+                           │
+       ┌───────────────────┴───────────────────┐
+       ▼                                       ▼
+┌──────────────┐                       ┌──────────────┐
+│  Python AST  │                       │ TypeScript   │
+│   (Native)   │                       │ Compiler API │
+│  ast.parse   │                       │ (jsparse.js) │
+└──────────────┘                       └──────────────┘
+```
+
+1. **Scanner (`repolens/scanner.py`)**: Walks target files (`followlinks=False`), enforces repository boundaries, respects `.gitignore`, and filters non-code directories (`node_modules`, `.git`, `__pycache__`, venvs, dist).
+2. **Analysis Engine (`repolens/engine.py`)**: Parses Python AST and Node.js TypeScript compiler ASTs, resolves local and external module specifiers, identifies entry points, runs Tarjan SCC for cycle detection, and computes BFS reachability.
+3. **Sandbox Manager (`repolens/github.py`)**: Validates GitHub URLs, shallow-clones (`--depth 1`, `--config core.symlinks=false`) without shell interpolation, enforces timeouts, and guarantees filesystem cleanup.
+4. **HTTP Server (`server.py`)**: Serves the lightweight frontend and REST API over loopback `127.0.0.1`.
+
+---
+
+## Prerequisites
 
 - **Python**: 3.10+ (tested on Python 3.13)
-- **Node.js**: 16+ (tested on Node.js v26)
-- **TypeScript**: `^5.0.0` (required for JS/TS analysis; tested on TypeScript 5.9.3)
+- **Node.js**: 16+ (tested on Node.js v20 & v22)
+- **TypeScript**: `^5.0.0` (required for JavaScript/TypeScript parsing)
+- **Git**: Required for GitHub public repository analysis
 
-> [!NOTE]
-> `typescript@7` is an experimental stub release that removed the classic compiler API (`ts.createSourceFile`, `ts.ScriptKind`). RepoLens requires TypeScript 5.x.
+---
 
-### Installation Steps
+## Installation & Setup
+
+### 1. Clone RepoLens
 
 ```sh
-# Clone the repository
-git clone <repository-url>
-cd repolens
+git clone https://github.com/Vikaspatel088/repolense.git
+cd repolense
+```
 
-# Install TypeScript locally for JS/TS analysis
+### 2. Install TypeScript Parser Dependency
+
+```sh
+# Install TypeScript locally
 npm install
 
-# Alternatively, install TypeScript globally:
+# Alternatively, if you have TypeScript installed globally:
 # npm install -g typescript@5
 ```
 
@@ -87,50 +130,75 @@ npm install
 
 ### Start the Server
 
-```sh
+**Windows PowerShell:**
+```powershell
 python server.py 8765
 ```
 
-Once running, navigate to:
+**macOS / Linux:**
+```bash
+python3 server.py 8765
+```
+
+Open your browser and navigate to:
 ```
 http://127.0.0.1:8765
 ```
 
-Enter the absolute path to any local repository (e.g. `C:\Projects\my-app` or `/home/user/projects/my-app`) and click **Analyze**.
-
 ### Stopping the Server
-
-Press `Ctrl+C` in the terminal where `server.py` is running to cleanly stop the server process.
-
-### Restricting Permitted Paths (Optional)
-
-To restrict analysis to a specific directory tree:
-```sh
-# Linux/macOS
-export REPOLENS_ALLOWED_ROOT=/path/to/permitted/projects
-python server.py 8765
-
-# Windows PowerShell
-$env:REPOLENS_ALLOWED_ROOT="C:\Projects"
-python server.py 8765
-```
+Press `Ctrl+C` in your terminal to cleanly stop the server process and remove any active temporary clone directories.
 
 ---
 
-## Running Tests
+## How to Analyze a Repository
 
-RepoLens includes a complete unit and integration test suite:
+### Option A: Local Directory
+1. Choose the **Local Directory** tab on the home screen.
+2. Enter the absolute path to your repository:
+   - **Windows**: `C:\Users\username\projects\my-app` (Tip: Shift+Right-Click folder in Explorer and select "Copy as path").
+   - **macOS / Linux**: `/home/user/projects/my-app`
+3. Click **Analyze Repository**.
+
+### Option B: Public GitHub Repository
+1. Choose the **Public GitHub Repository** tab.
+2. Enter the public repository URL (e.g. `https://github.com/pallets/flask`).
+3. Click **Clone & Analyze**. RepoLens will shallow-clone to an isolated temporary sandbox, analyze the ASTs, and present the full architecture dashboard.
+
+### Option C: Try Bundled Sample Fixture
+Click **Load Sample Repository** to test RepoLens on the bundled multi-language fixture (`repolens/sample_repo`).
+
+---
+
+## Automated Test Suite
+
+Run the full Python test discovery suite:
 
 ```sh
-# Run all standard tests
 python -m unittest discover -s tests -v
 ```
 
-### Observed Test Results
+Syntax check the TypeScript parser engine:
+
+```sh
+node --check repolens/jsparse.js
+```
+
+Run Playwright browser automation & screenshot verification:
+
+```sh
+python verify_and_screenshot.py
+```
+
+### Exact Observed Test Results
 
 ```
 test_flow_and_errors (test_repolens.TestAPI.test_flow_and_errors) ... ok
+test_github_analyze_validation (test_repolens.TestAPI.test_github_analyze_validation) ... ok
+test_sample_endpoint (test_repolens.TestAPI.test_sample_endpoint) ... ok
 test_security_boundaries_and_allowed_root (test_repolens.TestAPI.test_security_boundaries_and_allowed_root) ... ok
+test_cleanup_guard (test_repolens.TestGitHub.test_cleanup_guard) ... ok
+test_invalid_urls (test_repolens.TestGitHub.test_invalid_urls) ... ok
+test_url_parsing (test_repolens.TestGitHub.test_url_parsing) ... ok
 test_cycle_and_impact (test_repolens.TestGraph.test_cycle_and_impact) ... ok
 test_empty_repo (test_repolens.TestGraph.test_empty_repo) ... ok
 test_search (test_repolens.TestGraph.test_search) ... ok
@@ -147,58 +215,56 @@ test_unresolved_and_errors (test_repolens.TestPython.test_unresolved_and_errors)
 test_bad_paths (test_repolens.TestScanner.test_bad_paths) ... ok
 test_gitignore_and_excludes (test_repolens.TestScanner.test_gitignore_and_excludes) ... ok
 test_limits (test_repolens.TestScanner.test_limits) ... ok
-test_symlink_not_followed (test_repolens.TestScanner.test_symlink_not_followed) ... skipped (requires Windows SeCreateSymbolicLinkPrivilege)
+test_symlink_not_followed (test_repolens.TestScanner.test_symlink_not_followed) ... skipped (Windows SeCreateSymbolicLinkPrivilege requirement)
 
-Ran 19 tests in ~2.1s: 18 passed, 1 skipped (OS permission requirement), 0 failed.
+----------------------------------------------------------------------
+Ran 24 tests in 5.8s: 23 passed, 1 skipped (Windows symlink privilege), 0 failures.
 ```
 
 ---
 
-## Security Model & Privacy Boundaries
+## Security Model & Privacy Guarantees
 
-- **Local-Only Deployment**: RepoLens is strictly designed for local operation on `127.0.0.1` (loopback). It does not listen on public network interfaces and is not an internet-hosted web service or static site. Static hosting solutions (like GitHub Pages) cannot host RepoLens because it requires the active local Python backend (`server.py`) and Node.js parser (`jsparse.js`) to perform repository scanning and AST extraction.
-- **Zero Execution of User Code**: Source code is read and parsed via standard AST analyzers (`ast.parse` and TypeScript compiler API). Scanned files are never executed, imported into the runtime, or evaluated (`eval`/`exec`).
-- **No Data Exfiltration**: Snapshots live exclusively in server memory. No analytics, tracking, or network requests are dispatched outside localhost.
+- **Local-Only Binding**: RepoLens strictly binds to `127.0.0.1` (loopback). It cannot be reached across local networks or the internet.
+- **Zero Execution of Analyzed Code**: Source code is parsed into Abstract Syntax Trees via Python's standard `ast` library and TypeScript compiler APIs. Code is never imported into runtime, executed, or evaluated.
+- **Isolated GitHub Sandbox**:
+  - Clones are restricted to shallow depth (`--depth 1`).
+  - Symlinks are disabled during clone (`--config core.symlinks=false`).
+  - Clones reside in isolated operating system temporary directories.
+  - Subprocess execution uses safe argument lists (`shell=False`) to prevent command injection.
+  - Clones are cleaned up immediately on server shutdown or when a new repository is analyzed.
 - **Path Traversal Defenses**:
-  - Repository roots are validated with `os.path.realpath`.
-  - Scanned file paths must strictly reside within the root (`rp.startswith(real + os.sep)`).
-  - API endpoints (`/api/source`, `/api/impact`) reject relative traversal (`..`) and non-repository paths with HTTP 404.
-  - JS module resolution flags `outside-repository` when specifiers navigate above the repo root.
-- **Sanitized Public Responses**: Internal memory structures (e.g., `_text` full source buffers, `_abs` filesystem paths, `_index`, and `_rev` reverse maps) are stripped from public API JSON snapshots.
-- **Cross-Origin Protections**: `POST /api/analyze` enforces origin verification against the `Host` header to reject cross-origin requests.
-- **Payload Limits**: Request bodies are capped at 64 KB (`MAX_BODY`) to prevent denial-of-service.
-
----
-
-## Parser Availability & Fallback Behavior
-
-- **TypeScript API Available**: When TypeScript `^5.0.0` is installed (either locally in `./node_modules` or globally via `npm root -g`), JavaScript and TypeScript files are analyzed with full AST support.
-- **TypeScript API Unavailable**: If Node.js or a supported TypeScript compiler is missing:
-  - Python analysis continues to work completely without interruption.
-  - JS/TS files are safely inventoried in the file list.
-  - Files are marked with `parser unavailable` status rather than failing the scan or misrepresenting parse syntax errors.
-  - A descriptive warning is surfaced in the UI and exported report detailing how to install TypeScript.
-
----
-
-## Measured Performance
-
-Benchmarked on local fixtures (Python 3.13, Windows 11):
-
-| Fixture | Discovered Files | Graph Edges | Detected Cycles | Duration |
-|---|---|---|---|---|
-| **Small Python** | 10 files (18 LOC) | 8 | 0 | **4.1 ms** |
-| **Medium Python** | 100 files (300 LOC) | 197 | 1 | **29.0 ms** |
-| **Large Python** | 306 files (600 LOC) | 300 | 6 | **87.9 ms** |
-| **Mixed Py + JS/TS** | 100 files (50 Py, 25 JS, 25 TS) | 100 | 3 | **382.5 ms** |
-| **Syntax Error Stress** | 150 files (15 with SyntaxErrors) | — | — | **34.6 ms** |
+  - Target paths are validated using `os.path.realpath`.
+  - All source file reads must reside strictly inside the repository root.
+  - API endpoints reject directory traversal (`..`) with HTTP 404.
+- **Sanitized Public Responses**: Internal memory structures, raw absolute filesystem paths, and internal indexes are stripped from public responses.
+- **Content Security Policy (CSP)**: Enforces `default-src 'self'; frame-ancestors 'none'`.
 
 ---
 
 ## Known Limitations
 
-1. **Static Resolution Only**: Dynamic import expressions with computed variable specifiers (e.g., `import(variableName)` or `importlib.import_module(name)`) are not resolved to dependency edges.
-2. **TypeScript Path Aliases**: Custom `paths` configured in `tsconfig.json` are reported as `external-or-alias`.
-3. **Python `sys.path` Detection**: Module resolution assumes the scanned root is the import root (custom `src/` layouts or package installations are treated relative to the scanned directory).
-4. **Negated `.gitignore` Patterns**: Rules prefixed with `!` are not currently un-ignored.
-5. **Windows Symlink Creation**: On Windows, creating symlinks for testing requires elevated administrative privileges or Developer Mode enabled (`SeCreateSymbolicLinkPrivilege`). The scanner safely ignores existing symlinks on all platforms.
+1. **Static Specifiers Only**: Dynamic imports with computed variables (`import(someVar)` or `importlib.import_module(mod)`) cannot be statically linked to dependency graph edges.
+2. **TypeScript Path Mapping**: Custom path aliases configured in `tsconfig.json` (`@components/*`) are reported as `external-or-alias`.
+3. **Public Repositories Only**: GitHub repository cloning is restricted to public repositories; private repositories requiring OAuth or personal access tokens are not accessed.
+4. **Symlink Creation on Windows**: Running unit tests that construct new symbolic links on Windows requires Developer Mode or elevated privileges (`SeCreateSymbolicLinkPrivilege`). The scanner safely ignores existing symlinks on all operating systems.
+
+---
+
+## Product Roadmap
+
+- [x] **v2.0**: Premium light-first developer workspace redesign.
+- [x] **v2.0**: Public GitHub shallow clone sandbox workflow.
+- [x] **v2.0**: Real fixture bundled sample repository.
+- [x] **v2.0**: Interactive SVG force-directed graph with fit-to-screen controls.
+- [x] **v2.0**: Cycle-safe BFS change blast radius impact analysis.
+- [x] **v2.0**: Automated Playwright browser verification suite and screenshots.
+- [ ] **v2.1**: Support for Rust and Go AST static parsing.
+- [ ] **v2.2**: `tsconfig.json` path mapping alias resolution.
+- [ ] **v2.3**: Interactive side-by-side graph diff comparing two git branches.
+
+---
+
+## License
+
+Distributed under the MIT License. See [LICENSE](LICENSE) for more information.

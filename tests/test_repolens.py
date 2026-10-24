@@ -1,6 +1,7 @@
 import json, os, sys, tempfile, threading, unittest, urllib.request, urllib.error
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from repolens import engine, scanner
+from repolens.github import parse_github_url, GitHubCloneError, cleanup_clone
 import server
 
 
@@ -240,6 +241,56 @@ class TestAPI(Base):
                 self.assertEqual(self.call('/api/analyze', {'path': self.d})[0], 403)
             finally:
                 del os.environ['REPOLENS_ALLOWED_ROOT']
+
+    def test_sample_endpoint(self):
+        code, body, _ = self.call('/api/sample')
+        self.assertEqual(code, 200)
+        data = json.loads(body)
+        self.assertEqual(data['name'], 'sample_repo')
+        self.assertTrue(os.path.isdir(data['path']))
+
+    def test_github_analyze_validation(self):
+        code, body, _ = self.call('/api/analyze', {'url': 'not_a_valid_url'})
+        self.assertEqual(code, 400)
+        self.assertIn('Invalid GitHub URL', json.loads(body)['error'])
+
+        code, body, _ = self.call('/api/analyze', {'path': 'https://github.com/nonexistent_owner_12345/nonexistent_repo_99999'})
+        self.assertEqual(code, 400)
+        self.assertIn('not found or is private', json.loads(body)['error'])
+
+
+class TestGitHub(unittest.TestCase):
+    def test_url_parsing(self):
+        owner, repo, url = parse_github_url('https://github.com/Vikaspatel088/repolense')
+        self.assertEqual(owner, 'Vikaspatel088')
+        self.assertEqual(repo, 'repolense')
+        self.assertEqual(url, 'https://github.com/Vikaspatel088/repolense.git')
+
+        owner, repo, url = parse_github_url('github.com/facebook/react.git/')
+        self.assertEqual(owner, 'facebook')
+        self.assertEqual(repo, 'react')
+
+    def test_invalid_urls(self):
+        invalid = [
+            'https://gitlab.com/owner/repo',
+            'ftp://github.com/owner/repo',
+            'https://github.com/owner',
+            'https://github.com/-malicious/repo',
+            'https://github.com/owner/../evil',
+            'https://github.com/owner/--upload-pack',
+            '',
+            123,
+        ]
+        for inv in invalid:
+            with self.assertRaises(GitHubCloneError):
+                parse_github_url(inv)
+
+    def test_cleanup_guard(self):
+        # cleanup_clone should safely ignore non-temp or non-matching paths
+        cleanup_clone('/etc/passwd')
+        cleanup_clone('C:\\Windows\\System32')
+        cleanup_clone('')
+
 
 
 if __name__ == '__main__':

@@ -4,226 +4,2229 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>RepoLens: codebase architecture explorer</title>
+<title>RepoLens V2 — Codebase Architecture &amp; Dependency Intelligence</title>
 <style>
-@layer reset, tokens, base, layout, components, motion;
-@layer reset { *,*::before,*::after{box-sizing:border-box} body,h1,h2,h3,p,ul{margin:0} ul{padding:0;list-style:none} button,input,select{font:inherit;color:inherit} }
+@layer reset, tokens, base, layout, components, views;
+
+@layer reset {
+  *, *::before, *::after { box-sizing: border-box; }
+  body, h1, h2, h3, h4, p, ul, ol, figure { margin: 0; }
+  ul, ol { padding: 0; list-style: none; }
+  button, input, select { font: inherit; color: inherit; }
+}
+
 @layer tokens {
-  :root{color-scheme:light dark;
-    --bg:light-dark(#f6f5f1,#121316); --surface:light-dark(#fff,#1a1c20); --ink:light-dark(#1b1d22,#ecebe6); --mute:light-dark(#62666f,#9a9ea8);
-    --line:light-dark(#e4e1d9,#2b2e35); --accent:light-dark(#3b3fd8,#8f93ff); --accent-ink:light-dark(#fff,#0f1020);
-    --warn:light-dark(#b4501a,#f0a36b); --bad:light-dark(#c2264b,#ff7b9c); --ok:light-dark(#1e7a52,#6fd1a0);
-    --py:light-dark(#2a6fb0,#6fb1ee); --js:light-dark(#b58a00,#e8c24a); --ts:light-dark(#7a3fc2,#b88af0);
-    --r:12px; --shadow:0 1px 2px color-mix(in oklab,var(--ink) 8%,transparent),0 8px 24px -12px color-mix(in oklab,var(--ink) 18%,transparent);
-    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace; --sans:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif}
+  :root {
+    color-scheme: light dark;
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-subtle: #f1f5f9;
+    --surface-hover: #e2e8f0;
+    --ink: #0f172a;
+    --ink-muted: #475569;
+    --ink-subtle: #94a3b8;
+    --line: #e2e8f0;
+    --line-subtle: #cbd5e1;
+    --line-focus: #3b82f6;
+
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-subtle: #eff6ff;
+    --accent-ink: #ffffff;
+
+    --ok: #059669;
+    --ok-subtle: #ecfdf5;
+    --warn: #d97706;
+    --warn-subtle: #fffbeb;
+    --bad: #dc2626;
+    --bad-subtle: #fef2f2;
+
+    --py: #2563eb;
+    --js: #d97706;
+    --ts: #7c3aed;
+
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --r-full: 9999px;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #090d16;
+      --surface: #111726;
+      --surface-subtle: #192237;
+      --surface-hover: #222f4c;
+      --ink: #f1f5f9;
+      --ink-muted: #94a3b8;
+      --ink-subtle: #64748b;
+      --line: #1e293b;
+      --line-subtle: #334155;
+      --line-focus: #60a5fa;
+
+      --accent: #3b82f6;
+      --accent-hover: #60a5fa;
+      --accent-subtle: #1e293b;
+      --accent-ink: #ffffff;
+
+      --ok: #10b981;
+      --ok-subtle: #064e3b33;
+      --warn: #f59e0b;
+      --warn-subtle: #78350f33;
+      --bad: #ef4444;
+      --bad-subtle: #7f1d1d33;
+
+      --py: #60a5fa;
+      --js: #fcd34d;
+      --ts: #a78bfa;
+
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+    }
+  }
 }
+
 @layer base {
-  body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);min-height:100dvh;display:grid;grid-template-rows:auto 1fr}
-  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
-  .mono{font-family:var(--mono);font-size:.86em} .mute{color:var(--mute)} h2{font-size:1.15rem;letter-spacing:-.01em} h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);margin-bottom:.5rem}
-  .sr{position:absolute;left:-9999px}
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.5 var(--sans);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .mono { font-family: var(--mono); font-size: 0.88em; }
+  .mute { color: var(--ink-muted); }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 }
+
 @layer layout {
-  header{display:flex;flex-wrap:wrap;gap:.75rem 1rem;align-items:center;padding:.75rem 1.25rem;border-bottom:1px solid var(--line);background:color-mix(in oklab,var(--surface) 88%,transparent);backdrop-filter:blur(10px);position:sticky;top:0;z-index:5}
-  .brand{font-weight:700;letter-spacing:-.02em;display:flex;gap:.5rem;align-items:center} .brand i{width:22px;height:22px;border-radius:7px;background:conic-gradient(from 200deg,var(--accent),var(--py),var(--accent));display:block}
-  .repo{flex:1 1 320px;display:flex;gap:.5rem;min-width:0} .repo input{flex:1;min-width:0}
-  nav{display:flex;gap:.25rem;flex-wrap:wrap;width:100%} 
-  .shell{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem;padding:1rem 1.25rem;container-type:inline-size;align-items:start}
-  .shell:has(aside:not([hidden])){grid-template-columns:minmax(0,1fr) minmax(280px,380px)}
-  @container (max-width:760px){ .shell:has(aside:not([hidden])){grid-template-columns:minmax(0,1fr)} }
-  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem}
-  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem}
+  header.app-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    box-shadow: var(--shadow-sm);
+  }
+  .header-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 1.25rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    min-width: 0;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    text-decoration: none;
+    user-select: none;
+  }
+  .brand-logo {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 2px 6px -1px rgba(37,99,235,0.4);
+  }
+  .brand-logo svg { width: 16px; height: 16px; stroke-width: 2.2; }
+  .version-tag {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--r-full);
+    background: var(--surface-subtle);
+    color: var(--accent);
+    border: 1px solid var(--line);
+  }
+  .brand-sub {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--ink-subtle);
+    border-left: 1px solid var(--line);
+    padding-left: 0.75rem;
+    white-space: nowrap;
+  }
+  @media (max-width: 860px) { .brand-sub { display: none; } }
+
+  .header-center {
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+  }
+  .repo-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.65rem;
+    background: var(--surface-subtle);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    font-size: 0.85rem;
+    max-width: 100%;
+  }
+  .repo-indicator .repo-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+  }
+
+  nav.app-nav {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0 1.25rem 0.5rem 1.25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav.app-nav::-webkit-scrollbar { display: none; }
+  nav.app-nav button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid transparent;
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--ink-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+  nav.app-nav button:hover:not(:disabled) {
+    background: var(--surface-subtle);
+    color: var(--ink);
+  }
+  nav.app-nav button[aria-current="page"] {
+    background: var(--accent-subtle);
+    border-color: color-mix(in oklab, var(--accent) 30%, transparent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  nav.app-nav button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .app-body {
+    flex: 1;
+    display: flex;
+    position: relative;
+    max-width: 1600px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1.25rem;
+    gap: 1.25rem;
+    align-items: flex-start;
+  }
+  main#main {
+    flex: 1;
+    min-width: 0;
+  }
+  aside#drawer {
+    width: 400px;
+    max-width: 100%;
+    position: sticky;
+    top: 6.5rem;
+    max-height: calc(100dvh - 8rem);
+    overflow-y: auto;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-md);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    z-index: 30;
+  }
+  @media (max-width: 1024px) {
+    .app-body { flex-direction: column; padding: 0.75rem; }
+    aside#drawer { width: 100%; position: static; max-height: none; }
+  }
 }
+
 @layer components {
-  .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:1rem;box-shadow:var(--shadow)}
-  .stack{display:grid;gap:1rem}
-  input,select{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:.5rem .7rem;min-height:38px}
-  button{cursor:pointer;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:.45rem .8rem;min-height:38px;transition:background .15s,transform .1s}
-  button:hover{background:color-mix(in oklab,var(--accent) 8%,var(--surface))} button:active{transform:scale(.97)}
-  button.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:600} button:disabled,a.btn[aria-disabled=true]{opacity:.5;pointer-events:none}
-  a.btn{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:9px;padding:.45rem .8rem;min-height:38px;color:inherit;text-decoration:none;background:var(--surface)}
-  nav button{border:0;background:none;color:var(--mute);padding:.4rem .8rem;min-height:34px;border-radius:8px} nav button[aria-current=page]{background:color-mix(in oklab,var(--accent) 12%,transparent);color:var(--accent);font-weight:600}
-  .stat b{display:block;font-size:1.7rem;letter-spacing:-.03em;line-height:1.1} .stat span{color:var(--mute);font-size:.8rem}
-  .badge{font-size:.72rem;padding:.1rem .45rem;border-radius:99px;border:1px solid var(--line);color:var(--mute);white-space:nowrap} .badge.high,.badge.ok{color:var(--ok)} .badge.medium{color:var(--accent)} .badge.low,.badge.warn{color:var(--warn)} .badge.bad{color:var(--bad)}
-  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:.4rem;background:var(--mute)} .dot.python{background:var(--py)} .dot.javascript{background:var(--js)} .dot.typescript{background:var(--ts)}
-  .row{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap} .row.sb{justify-content:space-between}
-  .link{background:none;border:0;padding:0;min-height:0;color:var(--accent);text-align:left;font-family:var(--mono);font-size:.86em;overflow-wrap:anywhere} .link:hover{background:none;text-decoration:underline}
-  .list li{padding:.4rem 0;border-top:1px solid var(--line);display:flex;gap:.6rem;justify-content:space-between;align-items:baseline} .list li:first-child{border-top:0}
-  table{width:100%;border-collapse:collapse;font-size:.9rem} th,td{text-align:left;padding:.45rem .5rem;border-top:1px solid var(--line)} th{font-size:.75rem;color:var(--mute);text-transform:uppercase;letter-spacing:.06em;cursor:pointer;border-top:0;position:sticky;top:0;background:var(--surface)} td.n{text-align:right;font-variant-numeric:tabular-nums}
-  .scroll{max-height:62dvh;overflow:auto}
-  .bar{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--line)} .bar i{display:block}
-  .graph{position:relative;height:min(68dvh,640px);padding:0;overflow:hidden} .graph svg{width:100%;height:100%;display:block;cursor:grab;touch-action:none} .graph svg:active{cursor:grabbing}
-  .tools{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem;align-items:center}
-  .edge{stroke:color-mix(in oklab,var(--mute) 45%,transparent);stroke-width:1;fill:none} .edge.hot{stroke:var(--accent);stroke-width:1.8} .edge.cyc{stroke:var(--bad)} .edge.dim{opacity:.12}
-  .node{cursor:pointer} .node circle{stroke:var(--surface);stroke-width:1.5} .node:focus-visible{outline:none} .node:focus-visible circle{stroke:var(--accent);stroke-width:3} .node.sel circle{stroke:var(--ink);stroke-width:2.5} .node.dim{opacity:.18} .node text{font-size:10px;fill:var(--ink);paint-order:stroke;stroke:var(--surface);stroke-width:3px;pointer-events:none}
-  .legend{position:absolute;left:.75rem;bottom:.75rem;font-size:.75rem;color:var(--mute);background:color-mix(in oklab,var(--surface) 90%,transparent);padding:.3rem .6rem;border-radius:8px;border:1px solid var(--line)}
-  pre.src{margin:.5rem 0 0;background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:.5rem;overflow:auto;font:12px/1.5 var(--mono);max-height:240px} pre.src .hl{background:color-mix(in oklab,var(--accent) 18%,transparent);display:block}
-  .path{font-family:var(--mono);font-size:.8rem;color:var(--mute);overflow-wrap:anywhere} .path b{color:var(--ink);font-weight:500}
-  .empty{text-align:center;padding:3rem 1rem;max-width:560px;margin:2rem auto} .err{color:var(--bad);font-size:.9rem} .note{font-size:.85rem;color:var(--mute);border-left:3px solid var(--warn);padding-left:.7rem}
-  dialog{border:1px solid var(--line);border-radius:14px;padding:0;width:min(620px,92vw);background:var(--surface);color:var(--ink);box-shadow:0 30px 80px -20px #0007;margin-top:12vh} dialog::backdrop{background:#0006;backdrop-filter:blur(3px)}
-  dialog input{width:100%;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:1rem;font-size:1.05rem;min-height:56px} dialog input:focus-visible{outline:0} dialog ul{max-height:50dvh;overflow:auto} dialog li button{width:100%;border:0;border-radius:0;display:flex;gap:.6rem;justify-content:space-between;text-align:left;background:none} dialog li button[aria-selected=true]{background:color-mix(in oklab,var(--accent) 12%,transparent)}
-  kbd{font:11px var(--mono);border:1px solid var(--line);border-radius:5px;padding:0 .35rem;background:var(--bg)}
-  .spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;display:inline-block;animation:sp .7s linear infinite} @keyframes sp{to{transform:rotate(1turn)}}
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    gap: 0.75rem;
+  }
+  .panel-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+  .panel-subtitle {
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+  }
+
+  button, a.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    font-weight: 500;
+    font-size: 0.85rem;
+    border-radius: var(--r-md);
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    text-decoration: none;
+    cursor: pointer;
+    line-height: 1.3;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.08s;
+  }
+  button:hover:not(:disabled), a.btn:hover:not([aria-disabled="true"]) {
+    background: var(--surface-hover);
+    border-color: var(--line-subtle);
+  }
+  button:active:not(:disabled), a.btn:active:not([aria-disabled="true"]) {
+    transform: translateY(1px);
+  }
+  button.primary, a.btn.primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: transparent;
+  }
+  button.primary:hover:not(:disabled), a.btn.primary:hover:not([aria-disabled="true"]) {
+    background: var(--accent-hover);
+  }
+  button.subtle {
+    border-color: transparent;
+    background: transparent;
+    color: var(--ink-muted);
+  }
+  button.subtle:hover:not(:disabled) {
+    background: var(--surface-subtle);
+    color: var(--ink);
+  }
+  button.sm, a.btn.sm {
+    padding: 0.25rem 0.55rem;
+    font-size: 0.78rem;
+    border-radius: var(--r-sm);
+  }
+  button:disabled, a.btn[aria-disabled="true"] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  input, select {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.88rem;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 15%, transparent);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--r-full);
+    border: 1px solid var(--line);
+    background: var(--surface-subtle);
+    color: var(--ink-muted);
+    white-space: nowrap;
+  }
+  .badge.ok, .badge.high { background: var(--ok-subtle); color: var(--ok); border-color: color-mix(in oklab, var(--ok) 30%, transparent); }
+  .badge.warn, .badge.medium { background: var(--warn-subtle); color: var(--warn); border-color: color-mix(in oklab, var(--warn) 30%, transparent); }
+  .badge.bad, .badge.low { background: var(--bad-subtle); color: var(--bad); border-color: color-mix(in oklab, var(--bad) 30%, transparent); }
+  .badge.accent { background: var(--accent-subtle); color: var(--accent); border-color: color-mix(in oklab, var(--accent) 30%, transparent); }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .dot.python { background: var(--py); }
+  .dot.javascript { background: var(--js); }
+  .dot.typescript { background: var(--ts); }
+
+  .row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+  .row.sb { justify-content: space-between; }
+  .stack { display: flex; flex-direction: column; gap: 1rem; }
+
+  kbd {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem 0.35rem;
+    font: 0.72rem var(--mono);
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: var(--surface-subtle);
+    color: var(--ink-muted);
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 1rem 1.15rem;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 0.5rem;
+    transition: transform 0.15s, border-color 0.15s;
+  }
+  .stat-card:hover { border-color: var(--line-subtle); }
+  .stat-card-title {
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .stat-card-value {
+    font-size: 1.85rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-card-desc {
+    font-size: 0.78rem;
+    color: var(--ink-subtle);
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.85rem;
+  }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--line);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.65s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(1turn); } }
+
+  pre.src-view {
+    margin-top: 0.75rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 0.6rem 0.75rem;
+    font: 12px/1.6 var(--mono);
+    overflow-x: auto;
+    max-height: 280px;
+    scrollbar-width: thin;
+  }
+  pre.src-view span.line-wrap {
+    display: flex;
+    white-space: pre;
+  }
+  pre.src-view span.line-num {
+    user-select: none;
+    color: var(--ink-subtle);
+    width: 3.5rem;
+    text-align: right;
+    padding-right: 0.85rem;
+    flex-shrink: 0;
+  }
+  pre.src-view span.line-text {
+    flex: 1;
+  }
+  pre.src-view span.hl {
+    background: color-mix(in oklab, var(--accent) 15%, transparent);
+    border-radius: 3px;
+  }
+  pre.src-view span.hl .line-num {
+    color: var(--accent);
+    font-weight: bold;
+  }
+
+  button.file-link {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.86em;
+    cursor: pointer;
+    text-align: left;
+    overflow-wrap: anywhere;
+    transition: color 0.15s;
+  }
+  button.file-link:hover {
+    text-decoration: underline;
+    color: var(--accent-hover);
+  }
+
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  table.data-table th, table.data-table td {
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    border-top: 1px solid var(--line);
+  }
+  table.data-table th {
+    border-top: none;
+    background: var(--surface-subtle);
+    color: var(--ink-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    cursor: pointer;
+    user-select: none;
+  }
+  table.data-table th:hover { color: var(--ink); }
+  table.data-table tr:hover td { background: var(--surface-subtle); }
+  table.data-table td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+
+  dialog#cmd-pal {
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow-xl);
+    width: min(640px, 92vw);
+    padding: 0;
+    margin: 12vh auto auto auto;
+  }
+  dialog#cmd-pal::backdrop {
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px);
+  }
+  .pal-input-wrap {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+    padding: 0 1rem;
+    gap: 0.75rem;
+  }
+  .pal-input-wrap svg { width: 18px; height: 18px; color: var(--ink-subtle); }
+  .pal-input-wrap input {
+    width: 100%;
+    border: none;
+    box-shadow: none;
+    padding: 1rem 0;
+    font-size: 1.05rem;
+    background: transparent;
+  }
+  .pal-input-wrap input:focus { box-shadow: none; }
+  ul#pal-results {
+    max-height: 52vh;
+    overflow-y: auto;
+    padding: 0.5rem;
+  }
+  ul#pal-results li button {
+    width: 100%;
+    border: none;
+    background: transparent;
+    border-radius: var(--r-md);
+    padding: 0.6rem 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    text-align: left;
+    cursor: pointer;
+  }
+  ul#pal-results li button[aria-selected="true"], ul#pal-results li button:hover {
+    background: var(--accent-subtle);
+    color: var(--accent);
+  }
 }
-@layer motion { ::view-transition-old(root),::view-transition-new(root){animation-duration:.18s} @media (prefers-reduced-motion:reduce){*,::view-transition-group(*){animation:none!important;transition:none!important}} }
+
+@layer views {
+  /* Onboarding / First-Run */
+  .onboarding {
+    max-width: 920px;
+    margin: 1.5rem auto 3rem auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+  .hero-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 2.25rem 2.5rem;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--accent) 0%, #7c3aed 50%, var(--ok) 100%);
+  }
+  .hero-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+    line-height: 1.25;
+    margin-bottom: 0.75rem;
+  }
+  .hero-lead {
+    font-size: 1.05rem;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    max-width: 780px;
+  }
+
+  .source-tabs {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 0.75rem;
+    margin: 1.5rem 0 1.25rem 0;
+  }
+  .source-tab-btn {
+    padding: 0.45rem 1rem;
+    border-radius: var(--r-md);
+    border: 1px solid var(--line);
+    background: var(--surface-subtle);
+    color: var(--ink-muted);
+    font-weight: 500;
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+  .source-tab-btn.active {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+
+  .source-box {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .source-input-row {
+    display: flex;
+    gap: 0.65rem;
+  }
+  .source-input-row input {
+    flex: 1;
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    padding: 0.65rem 1rem;
+  }
+  .source-hint {
+    font-size: 0.82rem;
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+
+  .sample-cta-banner {
+    background: var(--surface-subtle);
+    border: 1px dashed var(--line-subtle);
+    border-radius: var(--r-lg);
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .feature-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+  .feature-preview-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 1.2rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .feature-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--accent-subtle);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+  }
+  .feature-icon-wrap svg { width: 20px; height: 20px; }
+  .feature-preview-card h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+  }
+  .feature-preview-card p {
+    font-size: 0.82rem;
+    color: var(--ink-muted);
+    line-height: 1.5;
+  }
+
+  /* Graph */
+  .graph-container {
+    position: relative;
+    height: min(72dvh, 700px);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .graph-container svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+    touch-action: none;
+  }
+  .graph-container svg:active { cursor: grabbing; }
+
+  .graph-toolbar {
+    position: absolute;
+    top: 0.85rem;
+    right: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: color-mix(in oklab, var(--surface) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 0.3rem 0.5rem;
+    box-shadow: var(--shadow-sm);
+    z-index: 10;
+  }
+  .graph-legend {
+    position: absolute;
+    bottom: 0.85rem;
+    left: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    background: color-mix(in oklab, var(--surface) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 0.4rem 0.75rem;
+    font-size: 0.78rem;
+    color: var(--ink-muted);
+    box-shadow: var(--shadow-sm);
+    z-index: 10;
+    flex-wrap: wrap;
+  }
+  .graph-legend-item { display: flex; align-items: center; gap: 0.35rem; }
+
+  .graph-tooltip {
+    position: absolute;
+    display: none;
+    background: var(--ink);
+    color: var(--bg);
+    padding: 0.4rem 0.65rem;
+    border-radius: var(--r-sm);
+    font-size: 0.75rem;
+    pointer-events: none;
+    z-index: 20;
+    box-shadow: var(--shadow-md);
+    max-width: 280px;
+    line-height: 1.4;
+  }
+
+  .edge {
+    stroke: color-mix(in oklab, var(--ink-subtle) 40%, transparent);
+    stroke-width: 1.2;
+    fill: none;
+    transition: opacity 0.2s, stroke 0.2s;
+  }
+  .edge.hot { stroke: var(--accent); stroke-width: 2.2; }
+  .edge.cyc { stroke: var(--bad); stroke-width: 2; stroke-dasharray: 4 2; }
+  .edge.dim { opacity: 0.08; }
+
+  .node { cursor: pointer; }
+  .node circle { stroke: var(--surface); stroke-width: 2; transition: r 0.2s, stroke 0.2s; }
+  .node:hover circle { stroke: var(--ink); stroke-width: 2.5; }
+  .node.sel circle { stroke: var(--ink); stroke-width: 3.5; }
+  .node.dim { opacity: 0.15; }
+  .node text {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    fill: var(--ink);
+    paint-order: stroke;
+    stroke: var(--surface);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* Language share bar */
+  .lang-bar {
+    display: flex;
+    height: 10px;
+    border-radius: var(--r-full);
+    overflow: hidden;
+    background: var(--line);
+    margin: 0.6rem 0;
+  }
+  .lang-bar span { display: block; height: 100%; transition: width 0.3s; }
+
+  /* Error and Notice Banners */
+  .alert-banner {
+    border-radius: var(--r-md);
+    padding: 0.85rem 1rem;
+    font-size: 0.88rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .alert-banner.err { background: var(--bad-subtle); color: var(--bad); border: 1px solid color-mix(in oklab, var(--bad) 30%, transparent); }
+  .alert-banner.warn { background: var(--warn-subtle); color: var(--warn); border: 1px solid color-mix(in oklab, var(--warn) 30%, transparent); }
+  .alert-banner.info { background: var(--accent-subtle); color: var(--accent); border: 1px solid color-mix(in oklab, var(--accent) 30%, transparent); }
+  .alert-banner svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 0.15rem; }
+
+  /* Tree and path items */
+  .path-breadcrumb {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--ink-muted);
+    background: var(--surface-subtle);
+    padding: 0.35rem 0.6rem;
+    border-radius: var(--r-sm);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    overflow-wrap: anywhere;
+    margin-top: 0.35rem;
+  }
+}
 </style>
 </head>
 <body>
-<header>
-  <div class="brand"><i aria-hidden="true"></i>RepoLens</div>
-  <form class="repo" id="form"><label class="sr" for="path">Repository path</label>
-    <input id="path" class="mono" placeholder="/absolute/path/to/repository" autocomplete="off" spellcheck="false" required>
-    <button class="primary" id="go" type="submit">Analyze</button></form>
-  <div class="row"><span id="status" class="mute" role="status" aria-live="polite"></span>
-    <button id="kbtn" type="button" title="Search files and symbols">Search <kbd>Ctrl K</kbd></button>
-    <a class="btn" id="report" href="/api/report" download="repolens-report.md" aria-disabled="true">Report</a></div>
-  <nav id="nav" aria-label="Views"></nav>
+
+<header class="app-header">
+  <div class="header-main">
+    <div class="header-left">
+      <a class="brand" href="/" onclick="event.preventDefault(); resetHome();">
+        <div class="brand-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3m-3.5-6.5-2.2 2.2m-8.6 8.6-2.2 2.2m0-13 2.2 2.2m8.6 8.6 2.2 2.2"/></svg>
+        </div>
+        <span>RepoLens</span>
+        <span class="version-tag">v2.0</span>
+      </a>
+      <span class="brand-sub">Architecture &amp; Dependency Intelligence</span>
+    </div>
+
+    <div class="header-center">
+      <div id="repo-pill" class="repo-indicator" hidden>
+        <span id="repo-mode-icon" aria-hidden="true"></span>
+        <span id="repo-label" class="repo-name"></span>
+        <button id="switch-btn" class="subtle sm" title="Switch or load another repository">Switch</button>
+        <button id="reanalyze-btn" class="subtle sm" title="Re-scan and update architecture snapshot">↻ Re-analyze</button>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <span id="global-status" class="mute mono" style="font-size:0.8rem;" role="status" aria-live="polite"></span>
+      <button id="kbtn" class="subtle" title="Search files, classes, and functions (Ctrl+K)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <span>Search</span>
+        <kbd id="k-hint">Ctrl K</kbd>
+      </button>
+      <a id="report-btn" class="btn sm" href="/api/report" download="repolens-report.md" aria-disabled="true" title="Export markdown architecture audit report">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Export Report</span>
+      </a>
+    </div>
+  </div>
+
+  <nav id="app-nav" class="app-nav" aria-label="Architecture Views"></nav>
 </header>
-<div class="shell"><main id="main" tabindex="-1"></main><aside id="detail" class="panel" hidden aria-label="Details"></aside></div>
-<dialog id="pal" aria-label="Search"><input id="q" placeholder="Search files and symbols…" autocomplete="off" role="combobox" aria-controls="res" aria-expanded="true"><ul id="res" role="listbox"></ul></dialog>
+
+<div class="app-body">
+  <main id="main" tabindex="-1"></main>
+  <aside id="drawer" hidden aria-label="File &amp; Symbol Inspector"></aside>
+</div>
+
+<!-- Command Palette Modal -->
+<dialog id="cmd-pal" aria-label="Search files and symbols">
+  <div class="pal-input-wrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input id="pal-input" placeholder="Search files, classes, functions, and symbols…" autocomplete="off" spellcheck="false">
+    <kbd>Esc</kbd>
+  </div>
+  <ul id="pal-results" role="listbox"></ul>
+</dialog>
+
 <script type="module">
-const $=(s,r=document)=>r.querySelector(s);
-const mk=(ns)=>(t,a={},...c)=>{const e=ns?document.createElementNS(ns,t):document.createElement(t);for(const[k,v]of Object.entries(a)){if(k==='class')e.setAttribute('class',v);else if(k.startsWith('on'))e.addEventListener(k.slice(2),v);else if(v!==false&&v!=null)e.setAttribute(k,v===true?'':v)}for(const x of c.flat(Infinity))if(x!=null)e.append(x.nodeType?x:document.createTextNode(String(x)));return e};
-const h=mk(),s=mk('http://www.w3.org/2000/svg');
-const kids=c=>c.flat(Infinity).filter(x=>x!=null&&x!==false);
-const add=(e,...c)=>{e.append(...kids(c));return e}, put=(e,...c)=>e.replaceChildren(...kids(c));
-const api=async(p,o)=>{let r;try{r=await fetch(p,o)}catch{throw new Error('Cannot reach the RepoLens server.')}const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d};
-const VIEWS=[['overview','Overview'],['graph','Graph'],['files','Files'],['impact','Impact'],['issues','Issues']];
-const S={snap:null,view:'overview',sel:null,impactTarget:null,fileQ:'',fileLang:'',sort:['fan_in',-1],graph:{lang:'',hideIso:true,q:''}};
-const base=p=>p.split('/').pop(), by=p=>S.snap.files.find(f=>f.path===p);
-const badge=(t,c='')=>h('span',{class:'badge '+c},t);
-const dot=l=>h('i',{class:'dot '+l,title:l});
-const fileLink=p=>h('button',{class:'link',onclick:()=>select(p)},p);
-function go(view){const f=()=>{S.view=view;renderNav();render()};document.startViewTransition?document.startViewTransition(f):f()}
-function renderNav(){const n=$('#nav');n.replaceChildren(...VIEWS.map(([k,l])=>h('button',{'aria-current':S.view===k?'page':null,disabled:!S.snap,onclick:()=>go(k)},l)))}
-function setStatus(t,busy){const e=$('#status');e.replaceChildren(...(busy?[h('span',{class:'spin'}),' ']:[]),t)}
-async function analyze(path){
-  $('#go').disabled=true;setStatus('Analyzing…',true);
-  try{S.snap=await api('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
-    localStorage.setItem('repolens.path',path);S.sel=null;S.impactTarget=null;$('#detail').hidden=true;$('#report').removeAttribute('aria-disabled');
-    setStatus(`${S.snap.stats.files} files · ${S.snap.duration_s}s`);S.view='overview'}
-  catch(e){setStatus('');S.err=e.message}finally{$('#go').disabled=false}
-  renderNav();render()}
-$('#form').addEventListener('submit',e=>{e.preventDefault();S.err=null;analyze($('#path').value.trim())});
-function render(){const m=$('#main');m.replaceChildren();
-  if(!S.snap){add(m,h('div',{class:'empty panel'},h('h2',{},'Understand a codebase without reading every file'),h('p',{class:'mute'},'Enter the absolute path of a local Python, JavaScript or TypeScript repository. Analysis is static: your code is parsed, never executed, and nothing leaves this machine.'),S.err?h('p',{class:'err',role:'alert'},S.err):null));return}
-  if(S.err)add(m,h('p',{class:'err',role:'alert'},S.err));
-  ({overview,graph,files,impact:impactView,issues})[S.view](m)}
-function stat(v,l,c){return h('div',{class:'panel stat'},h('b',{style:c?`color:var(--${c})`:null},v),h('span',{},l))}
-function overview(m){const {stats:st}=S.snap,tot=st.files||1,col={python:'py',javascript:'js',typescript:'ts'};
-  const eps=S.snap.files.filter(f=>f.entry);
-  add(m,h('div',{class:'stack'},
-    h('div',{class:'row sb'},h('h2',{},S.snap.root.split(/[/\\]/).filter(Boolean).pop()||S.snap.root),h('div',{class:'row'},h('span',{class:'mute mono'},S.snap.root),h('button',{onclick:()=>analyze(S.snap.root)},'Reanalyze'))),
-    h('div',{class:'cards'},stat(st.files,'files'),stat(st.loc,'lines'),stat(st.edges,'local dependencies'),stat(st.unresolved,'unresolved imports',st.unresolved?'warn':null),stat(st.cycles,'circular groups',st.cycles?'bad':'ok'),stat(st.parse_errors,'parse errors',st.parse_errors?'bad':null)),
-    h('div',{class:'panel'},h('h3',{},'Languages'),h('div',{class:'bar',role:'img','aria-label':'Language share'},Object.entries(st.languages).map(([l,n])=>h('i',{style:`width:${n/tot*100}%;background:var(--${col[l]})`,title:`${l}: ${n}`}))),h('div',{class:'row',style:'margin-top:.5rem'},Object.entries(st.languages).map(([l,n])=>h('span',{},dot(l),`${l} ${n}`)))),
-    h('div',{class:'cols'},
-      h('div',{class:'panel'},h('h3',{},'Entry points (heuristic)'),eps.length?h('ul',{class:'list'},eps.map(f=>h('li',{},fileLink(f.path),badge(f.entry.confidence,f.entry.confidence)))):h('p',{class:'mute'},'None identified.'),h('p',{class:'mute',style:'font-size:.8rem;margin-top:.5rem'},'Confidence reflects the evidence: a __main__ guard or package.json declaration, versus a conventional file name.')),
-      h('div',{class:'panel'},h('h3',{},'Most depended-upon'),hubList(st.top_fan_in,'imported by')),
-      h('div',{class:'panel'},h('h3',{},'Most dependencies'),hubList(st.top_fan_out,'imports'))),
-    S.snap.warnings.length?h('div',{class:'panel'},h('h3',{},'Warnings'),S.snap.warnings.map(w=>h('p',{class:'note'},w))):null))}
-const hubList=(a,v)=>a.length?h('ul',{class:'list'},a.map(x=>h('li',{},fileLink(x.file),h('span',{class:'mute'},`${v} ${x.count}`)))):h('p',{class:'mute'},'None.');
-function files(m){const q=S.fileQ.toLowerCase(),[k,d]=S.sort;
-  let rows=S.snap.files.filter(f=>(!q||f.path.toLowerCase().includes(q)||f.defs.some(x=>x.name.toLowerCase().includes(q)))&&(!S.fileLang||f.lang===S.fileLang));
-  rows.sort((a,b)=>{const x=k==='path'?a.path.localeCompare(b.path):(a[k]-b[k]);return x*(k==='path'?-d:d)||a.path.localeCompare(b.path)});
-  const th=(k,l)=>h('th',{tabindex:0,role:'columnheader','aria-sort':S.sort[0]===k?(S.sort[1]<0?'descending':'ascending'):'none',onclick:()=>{S.sort=[k,S.sort[0]===k?-S.sort[1]:-1];render()},onkeydown:e=>{if(e.key==='Enter')e.target.click()}},l);
-  add(m,h('div',{class:'panel'},h('div',{class:'tools'},
-    h('input',{type:'search',placeholder:'Filter by path or symbol',value:S.fileQ,'aria-label':'Filter files',oninput:e=>{S.fileQ=e.target.value;const p=e.target.selectionStart;render();const i=$('#main input');i.focus();i.setSelectionRange(p,p)}}),
-    h('select',{'aria-label':'Language',onchange:e=>{S.fileLang=e.target.value;render()}},h('option',{value:''},'All languages'),Object.keys(S.snap.stats.languages).map(l=>h('option',{value:l,selected:S.fileLang===l},l))),
-    h('span',{class:'mute'},`${rows.length} of ${S.snap.files.length}`)),
-    h('div',{class:'scroll'},h('table',{},h('thead',{},h('tr',{},th('path','File'),th('loc','Lines'),th('fan_in','In'),th('fan_out','Out'),th('defs','Symbols'))),
-      h('tbody',{},rows.slice(0,500).map(f=>h('tr',{},h('td',{},dot(f.lang),fileLink(f.path),f.error?[' ',badge(f.error.includes('parser unavailable')?'parser unavailable':'parse error',f.error.includes('parser unavailable')?'warn':'bad')]:null),h('td',{class:'n'},f.loc),h('td',{class:'n'},f.fan_in),h('td',{class:'n'},f.fan_out),h('td',{class:'n'},f.defs.length)))))),
-    rows.length>500?h('p',{class:'mute'},'Showing the first 500 matches; refine the filter.'):null))}
-// ---- graph ----
-function layout(nodes,links){const W=900,H=600,ix=new Map(nodes.map(n=>[n.id,n]));
-  nodes.forEach((n,i)=>{const a=i*2.399963,r=14*Math.sqrt(i+1);n.x=W/2+r*Math.cos(a);n.y=H/2+r*Math.sin(a);n.vx=n.vy=0});
-  const L=links.map(e=>[ix.get(e.source),ix.get(e.target)]);const N=260;
-  for(let it=0;it<N;it++){const cool=1-it/N;
-    for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){const a=nodes[i],b=nodes[j];let dx=a.x-b.x,dy=a.y-b.y;const d2=dx*dx+dy*dy+.01;if(d2>90000)continue;const d=Math.sqrt(d2),f=2200/d2;dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f}
-    for(const[a,b]of L){let dx=b.x-a.x,dy=b.y-a.y;const d=Math.hypot(dx,dy)||1,f=(d-70)*.02;dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f}
-    for(const n of nodes){n.vx+=(W/2-n.x)*.004;n.vy+=(H/2-n.y)*.004;n.x+=Math.max(-12,Math.min(12,n.vx))*cool;n.y+=Math.max(-12,Math.min(12,n.vy))*cool;n.vx*=.6;n.vy*=.6}}}
-function graph(m){const G=S.graph,all=S.snap.files;let list=all.filter(f=>(!G.lang||f.lang===G.lang)&&(!G.hideIso||f.fan_in+f.fan_out>0));
-  const CAP=300,capped=list.length>CAP;if(capped)list=[...list].sort((a,b)=>b.fan_in+b.fan_out-a.fan_in-a.fan_out).slice(0,CAP);
-  const ids=new Set(list.map(f=>f.path)),links=S.snap.edges.filter(e=>ids.has(e.source)&&ids.has(e.target));
-  const nodes=list.map(f=>({id:f.path,f}));layout(nodes,links);const ix=new Map(nodes.map(n=>[n.id,n]));
-  const cyc=S.snap.cycles.map(c=>new Set(c.members)),inCyc=e=>cyc.some(c=>c.has(e.source)&&c.has(e.target));
-  const gq=G.q.toLowerCase(),match=n=>!gq||n.id.toLowerCase().includes(gq);
-  const xs=nodes.map(n=>n.x),ys=nodes.map(n=>n.y),pad=60;
-  const bb=nodes.length?[Math.min(...xs)-pad,Math.min(...ys)-pad,Math.max(...xs)+pad,Math.max(...ys)+pad]:[0,0,900,600];
-  let vb=[bb[0],bb[1],Math.max(bb[2]-bb[0],200),Math.max(bb[3]-bb[1],150)];
-  const svg=s('svg',{viewBox:vb.join(' '),role:'img','aria-label':'Dependency graph. Arrows point from a file to the file it imports.'});
-  svg.append(s('defs',{},s('marker',{id:'ar',viewBox:'0 0 10 10',refX:'9',refY:'5',markerWidth:'6',markerHeight:'6',orient:'auto-start-reverse'},s('path',{d:'M0 0L10 5L0 10z',fill:'context-stroke'}))));
-  const eg=s('g'),ng=s('g');svg.append(eg,ng);
-  const R=n=>5+Math.min(11,Math.sqrt(n.f.fan_in)*3);
-  const colors={python:'var(--py)',javascript:'var(--js)',typescript:'var(--ts)'};
-  const els=links.map(e=>{const a=ix.get(e.source),b=ix.get(e.target);const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,r=R(b)+2;
-    const l=s('line',{class:'edge'+(inCyc(e)?' cyc':''),x1:a.x,y1:a.y,x2:b.x-dx/d*r,y2:b.y-dy/d*r,'marker-end':'url(#ar)'});eg.append(l);return[e,l]});
-  const nels=nodes.map(n=>{const g=s('g',{class:'node',tabindex:0,role:'button','aria-label':`${n.id}, imported by ${n.f.fan_in}, imports ${n.f.fan_out}`,transform:`translate(${n.x} ${n.y})`,onclick:()=>select(n.id),onkeydown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select(n.id)}}},
-      s('title',{},n.id),s('circle',{r:R(n),fill:colors[n.f.lang]}),(nodes.length<=60||S.sel===n.id)?s('text',{x:R(n)+3,y:3},base(n.id)):null);ng.append(g);return[n,g]});
-  function paint(){const sel=S.sel;els.forEach(([e,l])=>{const hot=sel&&(e.source===sel||e.target===sel);l.classList.toggle('hot',!!hot);l.classList.toggle('dim',!!sel&&!hot)});
-    nels.forEach(([n,g])=>{const rel=sel&&(n.id===sel||n.f.depends_on.includes(sel)||n.f.dependents.includes(sel));g.classList.toggle('sel',n.id===sel);g.classList.toggle('dim',!match(n)||(!!sel&&!rel))})}
-  paint();window.__paint=paint;
-  const wrap=h('div',{class:'panel graph'},svg,h('div',{class:'legend'},h('span',{style:'color:var(--py)'},'● python '),h('span',{style:'color:var(--js)'},'● js '),h('span',{style:'color:var(--ts)'},'● ts · '),h('span',{style:'color:var(--bad)'},'red = circular · '),'arrow: importer → imported · size: dependents'));
-  // zoom / pan
-  const pt=(e)=>{const r=svg.getBoundingClientRect();return[vb[0]+(e.clientX-r.left)/r.width*vb[2],vb[1]+(e.clientY-r.top)/r.height*vb[3],r]};
-  svg.addEventListener('wheel',e=>{e.preventDefault();const[px,py]=pt(e),k=e.deltaY>0?1.15:1/1.15;vb=[px-(px-vb[0])*k,py-(py-vb[1])*k,vb[2]*k,vb[3]*k];svg.setAttribute('viewBox',vb.join(' '))},{passive:false});
-  let drag=null;svg.addEventListener('pointerdown',e=>{if(e.target.closest('.node'))return;drag=[e.clientX,e.clientY,[...vb]];svg.setPointerCapture(e.pointerId)});
-  svg.addEventListener('pointermove',e=>{if(!drag)return;const r=svg.getBoundingClientRect();vb=[drag[2][0]-(e.clientX-drag[0])/r.width*vb[2],drag[2][1]-(e.clientY-drag[1])/r.height*vb[3],vb[2],vb[3]];svg.setAttribute('viewBox',vb.join(' '))});
-  svg.addEventListener('pointerup',()=>drag=null);
-  add(m,h('div',{class:'tools'},
-    h('input',{type:'search','aria-label':'Highlight files in graph',placeholder:'Highlight files…',value:G.q,oninput:e=>{G.q=e.target.value;paint()}}),
-    h('select',{'aria-label':'Language filter',onchange:e=>{G.lang=e.target.value;render()}},h('option',{value:''},'All languages'),Object.keys(S.snap.stats.languages).map(l=>h('option',{value:l,selected:G.lang===l},l))),
-    h('label',{class:'row'},h('input',{type:'checkbox',checked:G.hideIso,onchange:e=>{G.hideIso=e.target.checked;render()}}),'Hide unconnected files'),
-    h('span',{class:'mute'},`${nodes.length} files · ${links.length} dependencies`),capped?badge(`showing the ${CAP} most connected`,'warn'):null),
-    wrap,nodes.length?null:h('p',{class:'mute'},'No connected files to display with the current filters.'))}
-// ---- details ----
-async function select(p){S.sel=p;const a=$('#detail');a.hidden=false;const f=by(p);
-  const dl=(t,arr)=>h('div',{},h('h3',{},`${t} (${arr.length})`),arr.length?h('ul',{class:'list'},arr.map(x=>h('li',{},fileLink(x)))):h('p',{class:'mute'},'None'));
-  const src=h('div',{id:'src'});const un=S.snap.unresolved.filter(u=>u.file===p);
-  const symBtn=d=>h('li',{},h('button',{class:'link',onclick:()=>showSrc(p,d.line,src)},(d.parent?d.parent+'.':'')+d.name),h('span',{class:'row'},badge(d.kind),h('span',{class:'mute mono'},'L'+d.line)));
-  put(a,h('div',{class:'row sb'},h('h2',{class:'mono',style:'overflow-wrap:anywhere;font-size:1rem'},p),h('button',{'aria-label':'Close details',onclick:()=>{S.sel=null;a.hidden=true;S.view==='graph'?window.__paint?.():null}},'✕')),
-    h('div',{class:'row',style:'margin:.5rem 0'},dot(f.lang),f.lang,badge(f.loc+' lines'),f.entry?badge('entry: '+f.entry.confidence,f.entry.confidence):null),
-    f.entry?h('p',{class:'note'},f.entry.basis.replaceAll('`','')):null,f.error?h('p',{class:'err'},f.error):null,
-    h('div',{class:'row',style:'margin:.5rem 0'},h('button',{class:'primary',onclick:()=>{S.impactTarget=p;go('impact')}},'Impact analysis'),h('button',{onclick:()=>showSrc(p,1,src)},'View source')),
-    h('div',{class:'stack'},dl('Imports (direct dependencies)',f.depends_on),dl('Imported by (direct dependents)',f.dependents),
-      f.defs.length?h('div',{},h('h3',{},`Symbols (${f.defs.length})`),h('ul',{class:'list'},f.defs.slice(0,80).map(symBtn))):null,
-      f.exports.length?h('div',{},h('h3',{},'Exports'),h('div',{class:'row'},f.exports.map(e=>badge(e.name)))):null,
-      un.length?h('div',{},h('h3',{},'Unresolved imports'),h('ul',{class:'list'},un.map(u=>h('li',{},h('span',{class:'mono'},u.spec),h('span',{class:'row'},badge(u.reason,u.reason.startsWith('external')?'':'warn'),h('span',{class:'mute mono'},'L'+u.line)))))):null,src));
-  if(S.view==='graph')window.__paint?.()}
-async function showSrc(p,line,el){try{const d=await api(`/api/source?path=${encodeURIComponent(p)}&line=${line}`);
-  el.replaceChildren(h('h3',{style:'margin-top:1rem'},`${d.file}:${d.line}`),h('pre',{class:'src'},d.lines.map((t,i)=>h('span',{class:d.start+i===d.line?'hl':null},String(d.start+i).padStart(4)+'  '+t))))}catch(e){el.replaceChildren(h('p',{class:'err'},e.message))}}
-// ---- impact ----
-function impactView(m){const sorted=[...S.snap.files].sort((a,b)=>b.fan_in-a.fan_in||a.path.localeCompare(b.path)),out=h('div');
-  const run=async()=>{const t=S.impactTarget;if(!t)return;out.replaceChildren(h('span',{class:'spin'}));
-    try{const r=await api('/api/impact?path='+encodeURIComponent(t));const g={};r.dependents.forEach(d=>(g[d.distance]??=[]).push(d));
-      put(out,h('div',{class:'row',style:'margin:.75rem 0'},h('b',{},`${r.count} file${r.count===1?'':'s'} may be affected`),badge(`${r.direct.length} direct`),badge('file-level')),h('p',{class:'note'},r.note),
-        ...(r.count?Object.entries(g).map(([d,arr])=>h('div',{style:'margin-top:1rem'},h('h3',{},d==='1'?'Direct dependents':`${d} hops away`),h('ul',{class:'list'},arr.map(x=>h('li',{style:'display:block'},fileLink(x.file),h('div',{class:'path'},x.path.map((p,i)=>[i?' → ':'',h('b',{},base(p))])),h('div',{class:'path'},'imports along this path, ending at '+base(t))))))):[h('p',{class:'mute',style:'margin-top:1rem'},'No other analyzed file imports this one.')]))}
-    catch(e){out.replaceChildren(h('p',{class:'err'},e.message))}};
-  add(m,h('div',{class:'panel'},h('h2',{},'Impact analysis'),h('p',{class:'mute'},'Which files could be affected if you change this one? Computed by walking imports in reverse, cycle-safe, shortest path shown.'),
-    h('div',{class:'tools',style:'margin-top:.75rem'},h('select',{'aria-label':'File to analyze',style:'min-width:260px;max-width:100%',onchange:e=>{S.impactTarget=e.target.value}},h('option',{value:''},'Choose a file…'),sorted.map(f=>h('option',{value:f.path,selected:S.impactTarget===f.path},`${f.path} (${f.fan_in} direct)`))),h('button',{class:'primary',onclick:run},'Analyze impact')),out));
-  if(S.impactTarget)run()}
-// ---- issues ----
-function issues(m){const sn=S.snap,U=sn.unresolved,loc=U.filter(u=>!u.reason.startsWith('external'));
-  const sec=(t,n,body)=>h('div',{class:'panel'},h('h3',{},`${t} (${n})`),body);
-  const ul=(a,fn,empty)=>a.length?h('ul',{class:'list'},a.slice(0,300).map(fn)):h('p',{class:'mute'},empty);
-  add(m,h('div',{class:'stack'},
-    sec('Circular dependencies',sn.cycles.length,ul(sn.cycles,c=>h('li',{style:'display:block'},h('div',{class:'row'},badge(c.members.length+' files','bad')),h('div',{class:'path'},c.example.map((p,i)=>[i?' → ':'',h('button',{class:'link',onclick:()=>select(p)},p)]))),'No circular dependencies detected.')),
-    sec('Unresolved local-looking imports',loc.length,ul(loc,u=>h('li',{},h('span',{},fileLink(u.file),h('span',{class:'mute mono'},` L${u.line} → ${u.spec}`)),badge(u.reason,'warn')),'None. Every relative or in-repo import resolved.')),
-    sec('External or unresolvable imports',U.length-loc.length,ul(U.filter(u=>u.reason.startsWith('external')),u=>h('li',{},h('span',{},fileLink(u.file),h('span',{class:'mute mono'},` L${u.line} → ${u.spec}`)),badge(u.reason)),'None.')),
-    sec('Parse and analysis errors',sn.parse_errors.length,ul(sn.parse_errors,e=>h('li',{},fileLink(e.file),h('span',{class:(e.error.includes('parser unavailable')?'note':'err')+' mono'},e.error)),'No syntax or parser errors found.')),
-    sec('Skipped files',sn.skipped.length,ul(sn.skipped,s=>h('li',{},h('span',{class:'mono'},s.path),badge(s.reason)),'Nothing skipped.')),
-    h('p',{class:'mute',style:'font-size:.85rem'},`Also not scanned: ${sn.ignored_counts.unsupported} unsupported-type files, ${sn.ignored_counts.gitignored} gitignored paths, ${sn.ignored_counts.excluded_dirs} excluded directories (node_modules, .git, venvs, build output).`)))}
-// ---- command palette ----
-const pal=$('#pal'),qi=$('#q'),res=$('#res');let results=[],act=0,tm;
-function openPal(){if(!S.snap)return;pal.showModal();qi.value='';res.replaceChildren();qi.focus()}
-$('#kbtn').addEventListener('click',openPal);
-addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();pal.open?pal.close():openPal()}});
-pal.addEventListener('click',e=>{if(e.target===pal)pal.close()});
-const drawRes=()=>{res.replaceChildren(...results.map((r,i)=>h('li',{role:'option'},h('button',{type:'button','aria-selected':i===act?'true':'false',onclick:()=>pick(r)},h('span',{},r.name),h('span',{class:'row'},r.type!=='file'?h('span',{class:'mute mono'},r.file+':'+r.line):null,badge(r.type))))));if(!results.length&&qi.value.trim())res.append(h('li',{class:'mute',style:'padding:1rem'},'No matches in the analyzed repository.'))};
-const pick=r=>{pal.close();if(S.view!=='files'&&S.view!=='graph')S.view='graph';renderNav();render();select(r.file).then(()=>{if(r.type!=='file'){showSrc(r.file,r.line,$('#src'))}})};
-qi.addEventListener('input',()=>{clearTimeout(tm);tm=setTimeout(async()=>{try{results=(await api('/api/search?q='+encodeURIComponent(qi.value))).results}catch{results=[]}act=0;drawRes()},120)});
-qi.addEventListener('keydown',e=>{if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();act=(act+(e.key==='ArrowDown'?1:-1)+results.length)%Math.max(results.length,1);drawRes()}else if(e.key==='Enter'&&results[act]){e.preventDefault();pick(results[act])}});
-// init
-$('#path').value=localStorage.getItem('repolens.path')||'';renderNav();render();
+// DOM builder helpers
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const mk = (ns) => (t, a = {}, ...c) => {
+  const e = ns ? document.createElementNS(ns, t) : document.createElement(t);
+  for (const [k, v] of Object.entries(a)) {
+    if (k === 'class') e.setAttribute('class', v);
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v !== false && v != null) e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const x of c.flat(Infinity)) {
+    if (x != null && x !== false) e.append(x.nodeType ? x : document.createTextNode(String(x)));
+  }
+  return e;
+};
+const h = mk(), s = mk('http://www.w3.org/2000/svg');
+const add = (e, ...c) => { e.append(...c.flat(Infinity).filter(x => x != null && x !== false)); return e; };
+const put = (e, ...c) => e.replaceChildren(...c.flat(Infinity).filter(x => x != null && x !== false));
+
+// Keyboard hint detection (Mac vs Win)
+if (navigator.platform && navigator.platform.toUpperCase().includes('MAC')) {
+  $('#k-hint').textContent = '⌘K';
+}
+
+// State store
+const S = {
+  snap: null,
+  view: 'overview',
+  sel: null,
+  impactTarget: null,
+  fileQ: '',
+  fileLang: '',
+  sort: ['fan_in', -1],
+  graph: { lang: '', hideIso: false, q: '' },
+  err: null,
+  sourceMode: 'local', // 'local' or 'github'
+};
+
+const VIEWS = [
+  ['overview', 'Overview', '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>'],
+  ['graph', 'Dependency Graph', '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><line x1="8.5" y1="7.5" x2="15.5" y2="16.5"/><line x1="9" y1="6" x2="15" y2="6"/></svg>'],
+  ['files', 'Files & Symbols', '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>'],
+  ['impact', 'Impact Analysis', '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>'],
+  ['issues', 'Issues & Cycles', '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>']
+];
+
+// Utility helpers
+const baseName = p => p.split(/[/\\]/).filter(Boolean).pop() || p;
+const byPath = p => S.snap?.files?.find(f => f.path === p);
+const badge = (text, cls = '') => h('span', { class: `badge ${cls}` }, text);
+const langDot = lang => h('i', { class: `dot ${lang}`, title: lang });
+const fileLink = p => h('button', { class: 'file-link', onclick: () => inspectFile(p) }, p);
+
+async function api(path, options = {}) {
+  let res;
+  try {
+    res = await fetch(path, options);
+  } catch (err) {
+    throw new Error('Cannot connect to RepoLens backend server. Verify server.py is running.');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Server request failed with HTTP ${res.status}`);
+  }
+  return data;
+}
+
+function setStatus(text, busy = false) {
+  const el = $('#global-status');
+  put(el, busy ? [h('span', { class: 'spinner' }), ' '] : [], text);
+}
+
+function renderNav() {
+  const n = $('#app-nav');
+  n.replaceChildren(...VIEWS.map(([id, label, iconSvg]) => {
+    const btn = h('button', {
+      'aria-current': S.view === id ? 'page' : null,
+      disabled: !S.snap,
+      onclick: () => switchView(id)
+    });
+    btn.innerHTML = `${iconSvg}<span>${label}</span>`;
+    return btn;
+  }));
+}
+
+function switchView(viewId) {
+  S.view = viewId;
+  renderNav();
+  render();
+}
+
+function updateHeaderRepoPill() {
+  const pill = $('#repo-pill');
+  if (!S.snap) {
+    pill.hidden = true;
+    $('#report-btn').setAttribute('aria-disabled', 'true');
+    return;
+  }
+  pill.hidden = false;
+  $('#report-btn').removeAttribute('aria-disabled');
+  
+  const isGh = !!S.snap.is_github;
+  const label = S.snap.repo_name || baseName(S.snap.root);
+  $('#repo-label').textContent = label;
+  $('#repo-label').title = S.snap.source_path || S.snap.root;
+  $('#repo-mode-icon').innerHTML = isGh
+    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>'
+    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+}
+
+$('#switch-btn').addEventListener('click', () => {
+  S.snap = null;
+  S.sel = null;
+  S.impactTarget = null;
+  S.err = null;
+  $('#drawer').hidden = true;
+  updateHeaderRepoPill();
+  renderNav();
+  render();
+});
+
+$('#reanalyze-btn').addEventListener('click', () => {
+  if (!S.snap) return;
+  const payload = S.snap.is_github && S.snap.clone_url
+    ? { url: S.snap.clone_url }
+    : { path: S.snap.root };
+  executeAnalysis(payload);
+});
+
+window.resetHome = () => {
+  if (S.snap) switchView('overview');
+  else render();
+};
+
+async function executeAnalysis(payload) {
+  setStatus('Analyzing repository…', true);
+  S.err = null;
+  try {
+    const snap = await api('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    S.snap = snap;
+    S.sel = null;
+    S.impactTarget = null;
+    $('#drawer').hidden = true;
+    if (payload.path) localStorage.setItem('repolens.last_path', payload.path);
+    setStatus(`${snap.stats.files} files · ${snap.duration_s}s`);
+    S.view = 'overview';
+  } catch (err) {
+    setStatus('');
+    S.err = err.message;
+  }
+  updateHeaderRepoPill();
+  renderNav();
+  render();
+}
+
+function render() {
+  const main = $('#main');
+  main.replaceChildren();
+
+  if (S.err) {
+    add(main, h('div', { class: 'alert-banner err', role: 'alert' },
+      h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+        s('circle', { cx: '12', cy: '12', r: '10' }), s('line', { x1: '12', y1: '8', x2: '12', y2: '12' }), s('line', { x1: '12', y1: '16', x2: '12.01', y2: '16' })),
+      h('div', {}, h('b', {}, 'Analysis Error: '), S.err)
+    ));
+  }
+
+  if (!S.snap) {
+    renderOnboarding(main);
+    return;
+  }
+
+  const views = {
+    overview: renderOverview,
+    graph: renderGraph,
+    files: renderFiles,
+    impact: renderImpact,
+    issues: renderIssues
+  };
+  (views[S.view] || renderOverview)(main);
+}
+
+// -----------------------------------------
+// View: Onboarding / First-Run Experience
+// -----------------------------------------
+function renderOnboarding(m) {
+  const container = h('div', { class: 'onboarding' });
+
+  // Hero Card
+  const hero = h('div', { class: 'hero-card' },
+    h('h1', { class: 'hero-title' }, 'Explore Codebase Architecture &amp; Dependencies'),
+    h('p', { class: 'hero-lead' }, 'RepoLens audits import relationships, surfaces circular dependency cycles, and estimates change blast radius across Python, JavaScript, and TypeScript repositories—with 100% static parsing and zero code execution.')
+  );
+
+  // Source Selector Section
+  const sourceCard = h('div', { class: 'panel' },
+    h('div', { class: 'panel-header' },
+      h('div', {},
+        h('h2', { class: 'panel-title' }, 'Select a Repository to Analyze'),
+        h('p', { class: 'panel-subtitle' }, 'Choose between a local project directory or a public GitHub repository')
+      )
+    ),
+    h('div', { class: 'source-tabs' },
+      h('button', {
+        class: `source-tab-btn ${S.sourceMode === 'local' ? 'active' : ''}`,
+        onclick: () => { S.sourceMode = 'local'; S.err = null; render(); }
+      }, '📁 Local Directory'),
+      h('button', {
+        class: `source-tab-btn ${S.sourceMode === 'github' ? 'active' : ''}`,
+        onclick: () => { S.sourceMode = 'github'; S.err = null; render(); }
+      }, '🌐 Public GitHub Repository')
+    )
+  );
+
+  if (S.sourceMode === 'local') {
+    const localForm = h('form', {
+      class: 'source-box',
+      onsubmit: e => {
+        e.preventDefault();
+        const p = $('#input-local-path').value.trim();
+        if (p) executeAnalysis({ path: p });
+      }
+    },
+      h('div', { class: 'source-input-row' },
+        h('input', {
+          id: 'input-local-path',
+          placeholder: 'C:\\projects\\my-app or /home/user/code/repo',
+          value: localStorage.getItem('repolens.last_path') || '',
+          required: true
+        }),
+        h('button', { class: 'primary', type: 'submit' }, 'Analyze Repository')
+      ),
+      h('p', { class: 'source-hint' },
+        '💡 Tip: On Windows, Shift+Right-Click a folder in File Explorer and choose "Copy as path". All code is parsed into abstract syntax trees locally; nothing is ever executed.'
+      )
+    );
+    sourceCard.append(localForm);
+  } else {
+    const ghForm = h('form', {
+      class: 'source-box',
+      onsubmit: e => {
+        e.preventDefault();
+        const u = $('#input-gh-url').value.trim();
+        if (u) executeAnalysis({ url: u });
+      }
+    },
+      h('div', { class: 'source-input-row' },
+        h('input', {
+          id: 'input-gh-url',
+          placeholder: 'https://github.com/owner/repository',
+          required: true
+        }),
+        h('button', { class: 'primary', type: 'submit' }, 'Clone & Analyze')
+      ),
+      h('p', { class: 'source-hint' },
+        '🔒 Sandbox Protection: The repository is shallow-cloned (--depth 1) into an isolated temporary directory, parsed without running scripts, and cleaned up automatically.'
+      )
+    );
+    sourceCard.append(ghForm);
+  }
+
+  // Sample Repository CTA Banner
+  const sampleBanner = h('div', { class: 'sample-cta-banner' },
+    h('div', {},
+      h('h3', { style: 'font-size:0.95rem; font-weight:600; margin-bottom:0.25rem;' }, '✨ Quick Start: Explore Bundled Sample Repository'),
+      h('p', { class: 'mute', style: 'font-size:0.82rem;' }, 'Instantly test RepoLens with a bundled multi-language fixture featuring Python services, TypeScript components, and circular dependency loops.')
+    ),
+    h('button', {
+      class: 'primary',
+      onclick: async () => {
+        try {
+          const sampleInfo = await api('/api/sample');
+          executeAnalysis({ path: sampleInfo.path });
+        } catch (e) {
+          executeAnalysis({ path: 'repolens/sample_repo' });
+        }
+      }
+    }, 'Load Sample Repository')
+  );
+
+  // Value Proposition / Capabilities Grid
+  const features = h('div', { class: 'feature-preview-grid' },
+    h('div', { class: 'feature-preview-card' },
+      h('div', { class: 'feature-icon-wrap' },
+        h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+          s('circle', { cx: '6', cy: '6', r: '3' }), s('circle', { cx: '18', cy: '18', r: '3' }), s('line', { x1: '8.5', y1: '7.5', x2: '15.5', y2: '16.5' }))
+      ),
+      h('h4', {}, 'Visual Dependency Graph'),
+      h('p', {}, 'Explore an interactive force-directed graph with language color-coding, edge direction arrows, and instant node isolation.')
+    ),
+    h('div', { class: 'feature-preview-card' },
+      h('div', { class: 'feature-icon-wrap' },
+        h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+          s('circle', { cx: '12', cy: '12', r: '10' }), s('path', { d: 'm4.93 4.93 4.24 4.24' }), s('path', { d: 'm14.83 9.17 4.24-4.24' }), s('path', { d: 'm14.83 14.83 4.24 4.24' }), s('path', { d: 'm9.17 14.83-4.24 4.24' }))
+      ),
+      h('h4', {}, 'Cycle Detection (Tarjan SCC)'),
+      h('p', {}, 'Identify recursive architectural knots and circular imports with step-by-step cycle paths before they break in production.')
+    ),
+    h('div', { class: 'feature-preview-card' },
+      h('div', { class: 'feature-icon-wrap' },
+        h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+          s('circle', { cx: '12', cy: '12', r: '10' }), s('circle', { cx: '12', cy: '12', r: '6' }), s('circle', { cx: '12', cy: '12', r: '2' }))
+      ),
+      h('h4', {}, 'Change Blast Radius (BFS)'),
+      h('p', {}, 'Compute downstream ripple effects when modifying any file, walking inverse dependencies with shortest propagation paths.')
+    ),
+    h('div', { class: 'feature-preview-card' },
+      h('div', { class: 'feature-icon-wrap' },
+        h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+          s('path', { d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }), s('polyline', { points: '14 2 14 8 20 8' }))
+      ),
+      h('h4', {}, 'Deep Source &amp; Symbol Inspector'),
+      h('p', {}, 'Browse functions, classes, and exported interfaces with line numbers and safe HTML-escaped source excerpts.')
+    )
+  );
+
+  add(container, hero, sourceCard, sampleBanner, features);
+  add(m, container);
+}
+
+// -----------------------------------------
+// View: Overview Dashboard
+// -----------------------------------------
+function renderOverview(m) {
+  const { stats: st } = S.snap;
+  const tot = st.files || 1;
+  const langColors = { python: 'var(--py)', javascript: 'var(--js)', typescript: 'var(--ts)' };
+  const entryPoints = S.snap.files.filter(f => f.entry);
+
+  const container = h('div', { class: 'stack' });
+
+  // Header info row
+  const headRow = h('div', { class: 'panel' },
+    h('div', { class: 'row sb' },
+      h('div', {},
+        h('h2', { style: 'font-size:1.3rem; font-weight:700; letter-spacing:-0.02em;' }, S.snap.repo_name || baseName(S.snap.root)),
+        h('div', { class: 'row', style: 'margin-top:0.25rem;' },
+          h('span', { class: 'mute mono', style: 'font-size:0.82rem;' }, S.snap.source_path || S.snap.root),
+          badge(`${st.files} files analyzed`, 'accent'),
+          badge(`Duration: ${S.snap.duration_s}s`)
+        )
+      ),
+      h('div', { class: 'row' },
+        h('button', {
+          class: 'primary sm',
+          onclick: () => switchView('graph')
+        }, 'Open Dependency Graph →')
+      )
+    )
+  );
+
+  // Primary Metrics Grid
+  const grid = h('div', { class: 'stat-grid' },
+    renderStatCard('Files Analyzed', st.files, 'Supported source units'),
+    renderStatCard('Source Lines', st.loc.toLocaleString(), 'Total lines of code'),
+    renderStatCard('Local Dependencies', st.edges, 'Direct import relationships'),
+    renderStatCard('Circular Groups', st.cycles, st.cycles ? `${st.cycles} cycle${st.cycles>1?'s':''} detected` : 'No cycles (healthy)', st.cycles ? 'bad' : 'ok'),
+    renderStatCard('Unresolved Imports', st.unresolved, `${st.unresolved_local || 0} local unresolvable`, st.unresolved ? 'warn' : 'ok'),
+    renderStatCard('Parse Errors', st.parse_errors, st.parse_errors ? 'Action required' : 'Clean AST parses', st.parse_errors ? 'bad' : 'ok')
+  );
+
+  // Language Composition Bar
+  const langCard = h('div', { class: 'panel' },
+    h('div', { class: 'panel-header', style: 'margin-bottom:0.5rem;' },
+      h('h3', { class: 'panel-title', style: 'font-size:0.95rem;' }, 'Language Distribution')
+    ),
+    h('div', { class: 'lang-bar', role: 'img', 'aria-label': 'Language share' },
+      Object.entries(st.languages).map(([lang, count]) =>
+        h('span', {
+          style: `width: ${(count / tot) * 100}%; background: ${langColors[lang] || 'var(--ink-muted)'};`,
+          title: `${lang}: ${count} files (${Math.round((count/tot)*100)}%)`
+        })
+      )
+    ),
+    h('div', { class: 'row', style: 'gap:1.25rem; margin-top:0.6rem;' },
+      Object.entries(st.languages).map(([lang, count]) =>
+        h('div', { class: 'row', style: 'gap:0.4rem; font-size:0.84rem;' },
+          langDot(lang),
+          h('span', { style: 'font-weight:500;' }, lang),
+          h('span', { class: 'mute' }, `${count} (${Math.round((count/tot)*100)}%)`)
+        )
+      )
+    )
+  );
+
+  // Architecture Pillars: Entry Points, High Fan-In, High Fan-Out
+  const columns = h('div', { style: 'display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:1rem;' },
+    // Entry Points
+    h('div', { class: 'panel' },
+      h('div', { class: 'panel-header' },
+        h('h3', { class: 'panel-title', style: 'font-size:0.95rem;' }, 'Detected Entry Points'),
+        badge(`${entryPoints.length} files`)
+      ),
+      entryPoints.length ? h('ul', { style: 'display:flex; flex-direction:column; gap:0.5rem;' },
+        entryPoints.map(f => h('li', {
+          style: 'padding:0.45rem 0; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:baseline; gap:0.5rem;'
+        },
+          fileLink(f.path),
+          badge(f.entry.confidence, f.entry.confidence)
+        ))
+      ) : h('p', { class: 'mute', style: 'font-size:0.85rem;' }, 'No standard entry points identified.'),
+      h('p', { class: 'mute', style: 'font-size:0.78rem; margin-top:0.75rem;' },
+        'Confidence reflects evidence: __main__ guards &amp; package.json declarations vs file naming conventions.'
+      )
+    ),
+
+    // Top Fan-In (Most Depended-Upon Hubs)
+    h('div', { class: 'panel' },
+      h('div', { class: 'panel-header' },
+        h('h3', { class: 'panel-title', style: 'font-size:0.95rem;' }, 'Core Hubs (Highest Fan-In)'),
+        badge('In-degree')
+      ),
+      st.top_fan_in.length ? h('ul', { style: 'display:flex; flex-direction:column; gap:0.5rem;' },
+        st.top_fan_in.slice(0, 7).map(item => h('li', {
+          style: 'padding:0.45rem 0; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:baseline; gap:0.5rem;'
+        },
+          fileLink(item.file),
+          badge(`Imported by ${item.count}`, 'accent')
+        ))
+      ) : h('p', { class: 'mute', style: 'font-size:0.85rem;' }, 'No local dependencies found.'),
+      h('p', { class: 'mute', style: 'font-size:0.78rem; margin-top:0.75rem;' },
+        'Files that many other modules rely on. Changes to these hubs carry highest blast radius.'
+      )
+    ),
+
+    // Top Fan-Out (Heavy Consumers)
+    h('div', { class: 'panel' },
+      h('div', { class: 'panel-header' },
+        h('h3', { class: 'panel-title', style: 'font-size:0.95rem;' }, 'Heavy Consumers (Highest Fan-Out)'),
+        badge('Out-degree')
+      ),
+      st.top_fan_out.length ? h('ul', { style: 'display:flex; flex-direction:column; gap:0.5rem;' },
+        st.top_fan_out.slice(0, 7).map(item => h('li', {
+          style: 'padding:0.45rem 0; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:baseline; gap:0.5rem;'
+        },
+          fileLink(item.file),
+          badge(`Imports ${item.count}`)
+        ))
+      ) : h('p', { class: 'mute', style: 'font-size:0.85rem;' }, 'No outgoing imports found.'),
+      h('p', { class: 'mute', style: 'font-size:0.78rem; margin-top:0.75rem;' },
+        'Orchestration modules that aggregate multiple sub-services.'
+      )
+    )
+  );
+
+  // Warnings if any
+  const warnPanel = S.snap.warnings?.length ? h('div', { class: 'panel' },
+    h('h3', { class: 'panel-title', style: 'font-size:0.95rem; margin-bottom:0.6rem; color:var(--warn);' }, '⚠️ Scanner Warnings'),
+    S.snap.warnings.map(w => h('div', { class: 'alert-banner warn', style: 'margin-bottom:0.5rem;' }, w))
+  ) : null;
+
+  add(container, headRow, grid, langCard, columns, warnPanel);
+  add(m, container);
+}
+
+function renderStatCard(title, val, desc, badgeColor = null) {
+  const card = h('div', { class: 'stat-card' },
+    h('div', { class: 'stat-card-title' },
+      title,
+      badgeColor ? badge(badgeColor === 'ok' ? 'Healthy' : badgeColor.toUpperCase(), badgeColor) : null
+    ),
+    h('div', {
+      class: 'stat-card-value',
+      style: badgeColor ? `color: var(--${badgeColor})` : ''
+    }, val),
+    h('div', { class: 'stat-card-desc' }, desc)
+  );
+  return card;
+}
+
+// -----------------------------------------
+// View: Dependency Graph
+// -----------------------------------------
+function layoutGraph(nodes, links) {
+  const W = 1000, H = 700;
+  const ix = new Map(nodes.map(n => [n.id, n]));
+  
+  nodes.forEach((n, i) => {
+    const a = i * 2.399963;
+    const r = 18 * Math.sqrt(i + 1);
+    n.x = W / 2 + r * Math.cos(a);
+    n.y = H / 2 + r * Math.sin(a);
+    n.vx = n.vy = 0;
+  });
+
+  const L = links.map(e => [ix.get(e.source), ix.get(e.target)]).filter(([a, b]) => a && b);
+  const N = 240;
+
+  for (let it = 0; it < N; it++) {
+    const cool = 1 - it / N;
+    // Node-node repulsion
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        let dx = a.x - b.x, dy = a.y - b.y;
+        const d2 = dx * dx + dy * dy + 0.01;
+        if (d2 > 120000) continue;
+        const d = Math.sqrt(d2);
+        const f = 2800 / d2;
+        dx /= d; dy /= d;
+        a.vx += dx * f; a.vy += dy * f;
+        b.vx -= dx * f; b.vy -= dy * f;
+      }
+    }
+    // Link attraction
+    for (const [a, b] of L) {
+      let dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const f = (d - 90) * 0.025;
+      dx /= d; dy /= d;
+      a.vx += dx * f; a.vy += dy * f;
+      b.vx -= dx * f; b.vy -= dy * f;
+    }
+    // Centering & damping
+    for (const n of nodes) {
+      n.vx += (W / 2 - n.x) * 0.005;
+      n.vy += (H / 2 - n.y) * 0.005;
+      n.x += Math.max(-14, Math.min(14, n.vx)) * cool;
+      n.y += Math.max(-14, Math.min(14, n.vy)) * cool;
+      n.vx *= 0.65;
+      n.vy *= 0.65;
+    }
+  }
+}
+
+function renderGraph(m) {
+  const G = S.graph;
+  const all = S.snap.files;
+  let list = all.filter(f => (!G.lang || f.lang === G.lang) && (!G.hideIso || f.fan_in + f.fan_out > 0));
+
+  const CAP = 350;
+  const capped = list.length > CAP;
+  if (capped) {
+    list = [...list].sort((a, b) => (b.fan_in + b.fan_out) - (a.fan_in + a.fan_out)).slice(0, CAP);
+  }
+
+  const ids = new Set(list.map(f => f.path));
+  const links = S.snap.edges.filter(e => ids.has(e.source) && ids.has(e.target));
+  const nodes = list.map(f => ({ id: f.path, f }));
+
+  layoutGraph(nodes, links);
+  const ix = new Map(nodes.map(n => [n.id, n]));
+
+  const cycSets = S.snap.cycles.map(c => new Set(c.members));
+  const inCycle = e => cycSets.some(c => c.has(e.source) && c.has(e.target));
+
+  const gq = G.q.toLowerCase();
+  const matchFilter = n => !gq || n.id.toLowerCase().includes(gq);
+
+  const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y), pad = 70;
+  const bb = nodes.length ? [Math.min(...xs) - pad, Math.min(...ys) - pad, Math.max(...xs) + pad, Math.max(...ys) + pad] : [0, 0, 1000, 700];
+  let vb = [bb[0], bb[1], Math.max(bb[2] - bb[0], 250), Math.max(bb[3] - bb[1], 200)];
+
+  const initialVb = [...vb];
+
+  const svg = s('svg', {
+    viewBox: vb.join(' '),
+    role: 'img',
+    'aria-label': 'Interactive dependency graph'
+  });
+
+  // Arrow markers
+  svg.append(s('defs', {},
+    s('marker', { id: 'ar-normal', viewBox: '0 0 10 10', refX: '9', refY: '5', markerWidth: '6', markerHeight: '6', orient: 'auto-start-reverse' },
+      s('path', { d: 'M0 1.5L9 5L0 8.5z', fill: 'var(--ink-subtle)' })),
+    s('marker', { id: 'ar-hot', viewBox: '0 0 10 10', refX: '9', refY: '5', markerWidth: '7', markerHeight: '7', orient: 'auto-start-reverse' },
+      s('path', { d: 'M0 1.5L9 5L0 8.5z', fill: 'var(--accent)' })),
+    s('marker', { id: 'ar-cyc', viewBox: '0 0 10 10', refX: '9', refY: '5', markerWidth: '7', markerHeight: '7', orient: 'auto-start-reverse' },
+      s('path', { d: 'M0 1.5L9 5L0 8.5z', fill: 'var(--bad)' }))
+  ));
+
+  const edgeGroup = s('g'), nodeGroup = s('g');
+  svg.append(edgeGroup, nodeGroup);
+
+  const radius = n => 6 + Math.min(14, Math.sqrt(n.f.fan_in) * 3.5);
+  const langColors = { python: 'var(--py)', javascript: 'var(--js)', typescript: 'var(--ts)' };
+
+  const edgeEls = links.map(e => {
+    const a = ix.get(e.source), b = ix.get(e.target);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const r = radius(b) + 3;
+    const cyc = inCycle(e);
+    const lineEl = s('line', {
+      class: `edge ${cyc ? 'cyc' : ''}`,
+      x1: a.x, y1: a.y,
+      x2: b.x - (dx / d) * r, y2: b.y - (dy / d) * r,
+      'marker-end': `url(#${cyc ? 'ar-cyc' : 'ar-normal'})`
+    });
+    edgeGroup.append(lineEl);
+    return [e, lineEl];
+  });
+
+  const tooltipEl = h('div', { class: 'graph-tooltip' });
+
+  const nodeEls = nodes.map(n => {
+    const isSel = S.sel === n.id;
+    const r = radius(n);
+    const g = s('g', {
+      class: 'node',
+      tabindex: 0,
+      role: 'button',
+      'aria-label': `${n.id}, imported by ${n.f.fan_in}, imports ${n.f.fan_out}`,
+      transform: `translate(${n.x} ${n.y})`,
+      onclick: () => inspectFile(n.id),
+      onkeydown: ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); inspectFile(n.id); } },
+      onmouseenter: ev => {
+        tooltipEl.style.display = 'block';
+        tooltipEl.innerHTML = `<b>${baseName(n.id)}</b><br><span style="opacity:0.8">${n.id}</span><br><span>Lang: ${n.f.lang} · LOC: ${n.f.loc}</span><br><span>In: ${n.f.fan_in} | Out: ${n.f.fan_out}</span>`;
+        const rect = wrap.getBoundingClientRect();
+        tooltipEl.style.left = `${ev.clientX - rect.left + 12}px`;
+        tooltipEl.style.top = `${ev.clientY - rect.top + 12}px`;
+      },
+      onmousemove: ev => {
+        const rect = wrap.getBoundingClientRect();
+        tooltipEl.style.left = `${ev.clientX - rect.left + 12}px`;
+        tooltipEl.style.top = `${ev.clientY - rect.top + 12}px`;
+      },
+      onmouseleave: () => { tooltipEl.style.display = 'none'; }
+    },
+      s('circle', { r, fill: langColors[n.f.lang] || 'var(--ink-muted)' }),
+      (nodes.length <= 60 || isSel || n.f.fan_in >= 2) ? s('text', { x: r + 4, y: 3 }, baseName(n.id)) : null
+    );
+    nodeGroup.append(g);
+    return [n, g];
+  });
+
+  function paintGraph() {
+    const sel = S.sel;
+    edgeEls.forEach(([e, lineEl]) => {
+      const cyc = inCycle(e);
+      const hot = sel && (e.source === sel || e.target === sel);
+      lineEl.classList.toggle('hot', !!hot);
+      lineEl.classList.toggle('dim', !!sel && !hot);
+      lineEl.setAttribute('marker-end', `url(#${hot ? 'ar-hot' : (cyc ? 'ar-cyc' : 'ar-normal')})`);
+    });
+
+    nodeEls.forEach(([n, g]) => {
+      const rel = sel && (n.id === sel || n.f.depends_on?.includes(sel) || n.f.dependents?.includes(sel));
+      g.classList.toggle('sel', n.id === sel);
+      g.classList.toggle('dim', !matchFilter(n) || (!!sel && !rel));
+    });
+  }
+  paintGraph();
+  window.__paintGraph = paintGraph;
+
+  // Zoom & Pan
+  const wrap = h('div', { class: 'graph-container' }, svg, tooltipEl);
+
+  const zoomTo = factor => {
+    const cx = vb[0] + vb[2] / 2;
+    const cy = vb[1] + vb[3] / 2;
+    const nw = vb[2] * factor;
+    const nh = vb[3] * factor;
+    vb = [cx - nw / 2, cy - nh / 2, nw, nh];
+    svg.setAttribute('viewBox', vb.join(' '));
+  };
+
+  const fitView = () => {
+    vb = [...initialVb];
+    svg.setAttribute('viewBox', vb.join(' '));
+  };
+
+  const toolbar = h('div', { class: 'graph-toolbar' },
+    h('button', { class: 'subtle sm', title: 'Zoom in', onclick: () => zoomTo(0.8) }, '+'),
+    h('button', { class: 'subtle sm', title: 'Zoom out', onclick: () => zoomTo(1.25) }, '−'),
+    h('button', { class: 'subtle sm', title: 'Fit to screen', onclick: fitView }, 'Fit')
+  );
+  wrap.append(toolbar);
+
+  const legend = h('div', { class: 'graph-legend' },
+    h('div', { class: 'graph-legend-item' }, langDot('python'), 'Python'),
+    h('div', { class: 'graph-legend-item' }, langDot('javascript'), 'JavaScript'),
+    h('div', { class: 'graph-legend-item' }, langDot('typescript'), 'TypeScript'),
+    h('div', { class: 'graph-legend-item' }, h('span', { style: 'color:var(--bad); font-weight:bold;' }, '---'), 'Cycle Loop'),
+    h('div', { class: 'graph-legend-item' }, 'Arrow: A → B means A imports B')
+  );
+  wrap.append(legend);
+
+  // Wheel zoom
+  svg.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = svg.getBoundingClientRect();
+    const px = vb[0] + ((e.clientX - r.left) / r.width) * vb[2];
+    const py = vb[1] + ((e.clientY - r.top) / r.height) * vb[3];
+    const k = e.deltaY > 0 ? 1.15 : 1 / 1.15;
+    vb = [px - (px - vb[0]) * k, py - (py - vb[1]) * k, vb[2] * k, vb[3] * k];
+    svg.setAttribute('viewBox', vb.join(' '));
+  }, { passive: false });
+
+  // Drag pan
+  let drag = null;
+  svg.addEventListener('pointerdown', e => {
+    if (e.target.closest('.node')) return;
+    drag = [e.clientX, e.clientY, [...vb]];
+    svg.setPointerCapture(e.pointerId);
+  });
+  svg.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const r = svg.getBoundingClientRect();
+    vb = [
+      drag[2][0] - ((e.clientX - drag[0]) / r.width) * vb[2],
+      drag[2][1] - ((e.clientY - drag[1]) / r.height) * vb[3],
+      vb[2],
+      vb[3]
+    ];
+    svg.setAttribute('viewBox', vb.join(' '));
+  });
+  svg.addEventListener('pointerup', () => { drag = null; });
+
+  // Top Filter Controls
+  const filterControls = h('div', { class: 'panel', style: 'padding:0.75rem 1rem;' },
+    h('div', { class: 'row sb' },
+      h('div', { class: 'row' },
+        h('input', {
+          type: 'search',
+          placeholder: 'Search / highlight nodes…',
+          value: G.q,
+          style: 'min-width:220px;',
+          oninput: e => { G.q = e.target.value; paintGraph(); }
+        }),
+        h('select', {
+          onchange: e => { G.lang = e.target.value; render(); }
+        },
+          h('option', { value: '' }, 'All Languages'),
+          Object.keys(S.snap.stats.languages).map(l => h('option', { value: l, selected: G.lang === l }, l))
+        ),
+        h('label', { class: 'row', style: 'font-size:0.85rem; user-select:none; cursor:pointer;' },
+          h('input', {
+            type: 'checkbox',
+            checked: G.hideIso,
+            onchange: e => { G.hideIso = e.target.checked; render(); }
+          }),
+          'Hide disconnected files'
+        )
+      ),
+      h('div', { class: 'row' },
+        badge(`${nodes.length} nodes · ${links.length} dependencies`),
+        capped ? badge(`Capped at top ${CAP} connected`, 'warn') : null
+      )
+    )
+  );
+
+  const container = h('div', { class: 'stack' }, filterControls, wrap);
+  add(m, container);
+}
+
+// -----------------------------------------
+// View: Files & Symbols Explorer
+// -----------------------------------------
+function renderFiles(m) {
+  const q = S.fileQ.toLowerCase();
+  const [colKey, dir] = S.sort;
+
+  let rows = S.snap.files.filter(f => {
+    const matchQ = !q || f.path.toLowerCase().includes(q) || f.defs.some(d => d.name.toLowerCase().includes(q));
+    const matchLang = !S.fileLang || f.lang === S.fileLang;
+    return matchQ && matchLang;
+  });
+
+  rows.sort((a, b) => {
+    let diff = 0;
+    if (colKey === 'path') diff = a.path.localeCompare(b.path);
+    else if (colKey === 'defs') diff = a.defs.length - b.defs.length;
+    else diff = (a[colKey] || 0) - (b[colKey] || 0);
+    return diff * dir || a.path.localeCompare(b.path);
+  });
+
+  const sortHeader = (key, label) => h('th', {
+    role: 'columnheader',
+    'aria-sort': S.sort[0] === key ? (S.sort[1] < 0 ? 'descending' : 'ascending') : 'none',
+    onclick: () => {
+      S.sort = [key, S.sort[0] === key ? -S.sort[1] : -1];
+      render();
+    }
+  }, label, S.sort[0] === key ? (S.sort[1] < 0 ? ' ↓' : ' ↑') : '');
+
+  const toolRow = h('div', { class: 'panel', style: 'padding:0.75rem 1rem;' },
+    h('div', { class: 'row sb' },
+      h('div', { class: 'row' },
+        h('input', {
+          type: 'search',
+          placeholder: 'Filter files or symbols…',
+          value: S.fileQ,
+          style: 'min-width:260px;',
+          oninput: e => {
+            S.fileQ = e.target.value;
+            const pos = e.target.selectionStart;
+            render();
+            const input = $('#main input[type="search"]');
+            if (input) { input.focus(); input.setSelectionRange(pos, pos); }
+          }
+        }),
+        h('select', {
+          onchange: e => { S.fileLang = e.target.value; render(); }
+        },
+          h('option', { value: '' }, 'All Languages'),
+          Object.keys(S.snap.stats.languages).map(l => h('option', { value: l, selected: S.fileLang === l }, l))
+        )
+      ),
+      h('span', { class: 'mute', style: 'font-size:0.85rem;' },
+        `Showing ${Math.min(rows.length, 500)} of ${S.snap.files.length} files`
+      )
+    )
+  );
+
+  const tablePanel = h('div', { class: 'panel', style: 'padding:0; overflow:hidden;' },
+    h('div', { style: 'max-height: 65vh; overflow-y: auto;' },
+      h('table', { class: 'data-table' },
+        h('thead', {},
+          h('tr', {},
+            sortHeader('path', 'Source File'),
+            sortHeader('lang', 'Language'),
+            sortHeader('loc', 'Lines'),
+            sortHeader('fan_in', 'In (Dependents)'),
+            sortHeader('fan_out', 'Out (Imports)'),
+            sortHeader('defs', 'Symbols'),
+            h('th', {}, 'Status')
+          )
+        ),
+        h('tbody', {},
+          rows.slice(0, 500).map(f => {
+            const hasCyc = S.snap.cycles.some(c => c.members.includes(f.path));
+            return h('tr', {},
+              h('td', {},
+                h('div', { class: 'row', style: 'gap:0.45rem;' },
+                  langDot(f.lang),
+                  fileLink(f.path)
+                )
+              ),
+              h('td', {}, f.lang),
+              h('td', { class: 'num' }, f.loc),
+              h('td', { class: 'num' }, f.fan_in),
+              h('td', { class: 'num' }, f.fan_out),
+              h('td', { class: 'num' }, f.defs.length),
+              h('td', {},
+                f.error ? badge('Parse Error', 'bad') :
+                hasCyc ? badge('In Cycle', 'bad') :
+                f.entry ? badge('Entry', f.entry.confidence) :
+                badge('Healthy', 'ok')
+              )
+            );
+          })
+        )
+      )
+    )
+  );
+
+  const container = h('div', { class: 'stack' }, toolRow, tablePanel);
+  add(m, container);
+}
+
+// -----------------------------------------
+// View: Impact Analysis (BFS Blast Radius)
+// -----------------------------------------
+function renderImpact(m) {
+  const sortedFiles = [...S.snap.files].sort((a, b) => b.fan_in - a.fan_in || a.path.localeCompare(b.path));
+  const resultContainer = h('div');
+
+  const executeImpact = async () => {
+    const target = S.impactTarget;
+    if (!target) return;
+    put(resultContainer, h('div', { class: 'row', style: 'padding:1.5rem 0;' }, h('span', { class: 'spinner' }), ' Computing reachability tree…'));
+
+    try {
+      const data = await api(`/api/impact?path=${encodeURIComponent(target)}`);
+      
+      const hopGroups = {};
+      data.dependents.forEach(d => {
+        (hopGroups[d.distance] ??= []).push(d);
+      });
+
+      const maxDist = data.dependents.length ? Math.max(...data.dependents.map(d => d.distance)) : 0;
+
+      put(resultContainer,
+        h('div', { class: 'stat-grid', style: 'margin: 1.25rem 0;' },
+          renderStatCard('Total Blast Radius', `${data.count} files`, 'Potentially affected downstream', data.count ? 'warn' : 'ok'),
+          renderStatCard('Direct Dependents', `${data.direct.length} files`, 'Immediate 1st-hop importers'),
+          renderStatCard('Maximum Depth', `${maxDist} hops`, 'Deepest propagation path')
+        ),
+        h('div', { class: 'alert-banner info' },
+          h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+            s('circle', { cx: '12', cy: '12', r: '10' }), s('line', { x1: '12', y1: '16', x2: '12', y2: '12' }), s('line', { x1: '12', y1: '8', x2: '12.01', y2: '8' })),
+          h('div', {},
+            h('b', {}, 'Static BFS Propagation Notice: '),
+            data.note
+          )
+        ),
+        data.count ? Object.entries(hopGroups).map(([dist, items]) =>
+          h('div', { class: 'panel', style: 'margin-top:1rem;' },
+            h('div', { class: 'panel-header' },
+              h('h3', { class: 'panel-title', style: 'font-size:0.95rem;' },
+                dist === '1' ? 'Direct Dependents (1 Hop Away)' : `Transitive Dependents (${dist} Hops Away)`
+              ),
+              badge(`${items.length} files`)
+            ),
+            h('ul', { style: 'display:flex; flex-direction:column; gap:0.6rem;' },
+              items.map(item => h('li', {
+                style: 'padding:0.5rem 0; border-top:1px solid var(--line);'
+              },
+                h('div', { class: 'row sb' },
+                  fileLink(item.file),
+                  badge(`Depth ${item.distance}`)
+                ),
+                h('div', { class: 'path-breadcrumb' },
+                  'Impact path: ',
+                  item.path.map((p, i) => [
+                    i > 0 ? ' → ' : '',
+                    h('span', { style: p === target ? 'color:var(--accent); font-weight:600;' : '' }, baseName(p))
+                  ])
+                )
+              ))
+            )
+          )
+        ) : h('div', { class: 'panel', style: 'text-align:center; padding:2rem 1rem;' },
+          h('p', { class: 'mute' }, 'No other analyzed file imports this module. Blast radius is isolated to this file.')
+        )
+      );
+    } catch (err) {
+      put(resultContainer, h('div', { class: 'alert-banner err' }, err.message));
+    }
+  };
+
+  const selectorPanel = h('div', { class: 'panel' },
+    h('div', { class: 'panel-header' },
+      h('div', {},
+        h('h2', { class: 'panel-title' }, 'Reverse Impact Analysis &amp; Blast Radius'),
+        h('p', { class: 'panel-subtitle' }, 'Cycle-safe BFS reverse dependency tree: estimate downstream components affected by a change.')
+      )
+    ),
+    h('div', { class: 'row', style: 'margin-top:0.75rem;' },
+      h('select', {
+        id: 'impact-select',
+        style: 'min-width:320px; max-width:100%;',
+        onchange: e => {
+          S.impactTarget = e.target.value;
+          executeImpact();
+        }
+      },
+        h('option', { value: '' }, 'Select a file to inspect downstream blast radius…'),
+        sortedFiles.map(f => h('option', {
+          value: f.path,
+          selected: S.impactTarget === f.path
+        }, `${f.path} (${f.fan_in} direct dependents)`))
+      ),
+      h('button', { class: 'primary', onclick: executeImpact }, 'Analyze Blast Radius')
+    ),
+    resultContainer
+  );
+
+  add(m, selectorPanel);
+  if (S.impactTarget) executeImpact();
+}
+
+// -----------------------------------------
+// View: Issues & Cycles
+// -----------------------------------------
+function renderIssues(m) {
+  const sn = S.snap;
+  const unres = sn.unresolved || [];
+  const localUnres = unres.filter(u => !u.reason.startsWith('external'));
+  const externalUnres = unres.filter(u => u.reason.startsWith('external'));
+
+  const container = h('div', { class: 'stack' });
+
+  // 1. Circular Dependencies (Tarjan SCC)
+  const cycPanel = h('div', { class: 'panel' },
+    h('div', { class: 'panel-header' },
+      h('div', {},
+        h('h3', { class: 'panel-title' }, 'Circular Dependencies (Tarjan SCC)'),
+        h('p', { class: 'panel-subtitle' }, 'Mutual or indirect cyclic imports that risk runtime import deadlocks.')
+      ),
+      badge(`${sn.cycles.length} group${sn.cycles.length===1?'':'s'}`, sn.cycles.length ? 'bad' : 'ok')
+    ),
+    sn.cycles.length ? h('ul', { style: 'display:flex; flex-direction:column; gap:0.85rem;' },
+      sn.cycles.map((cyc, idx) => h('li', {
+        class: 'panel',
+        style: 'background:var(--surface-subtle); border-color:color-mix(in oklab, var(--bad) 30%, transparent);'
+      },
+        h('div', { class: 'row sb', style: 'margin-bottom:0.5rem;' },
+          h('b', { style: 'color:var(--bad);' }, `Cycle Loop #${idx + 1}`),
+          badge(`${cyc.members.length} files in cycle`, 'bad')
+        ),
+        h('div', { class: 'path-breadcrumb', style: 'background:var(--surface);' },
+          cyc.example.map((p, i) => [
+            i > 0 ? ' 🔁 ' : '',
+            h('button', { class: 'file-link', onclick: () => inspectFile(p) }, baseName(p))
+          ])
+        )
+      ))
+    ) : h('p', { class: 'mute', style: 'font-size:0.88rem;' }, 'No circular dependency cycles detected in this repository.')
+  );
+
+  // 2. Unresolved Local Imports
+  const localPanel = h('div', { class: 'panel' },
+    h('div', { class: 'panel-header' },
+      h('div', {},
+        h('h3', { class: 'panel-title' }, 'Unresolved Local Imports'),
+        h('p', { class: 'panel-subtitle' }, 'Relative or in-project imports that failed to match an existing file.')
+      ),
+      badge(`${localUnres.length} items`, localUnres.length ? 'warn' : 'ok')
+    ),
+    localUnres.length ? h('ul', { style: 'display:flex; flex-direction:column; gap:0.4rem;' },
+      localUnres.slice(0, 100).map(u => h('li', {
+        style: 'padding:0.45rem 0; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:baseline; gap:0.5rem;'
+      },
+        h('div', {},
+          fileLink(u.file),
+          h('span', { class: 'mute mono', style: 'margin-left:0.5rem;' }, `L${u.line} → "${u.spec}"`)
+        ),
+        badge(u.reason, 'warn')
+      ))
+    ) : h('p', { class: 'mute', style: 'font-size:0.88rem;' }, 'All relative and workspace imports resolved cleanly.')
+  );
+
+  // 3. External Dependencies
+  const extPanel = h('div', { class: 'panel' },
+    h('div', { class: 'panel-header' },
+      h('div', {},
+        h('h3', { class: 'panel-title' }, 'External Dependencies &amp; Third-Party Modules'),
+        h('p', { class: 'panel-subtitle' }, 'Imports referencing external libraries or package aliases.')
+      ),
+      badge(`${externalUnres.length} references`)
+    ),
+    externalUnres.length ? h('ul', { style: 'display:flex; flex-direction:column; gap:0.4rem;' },
+      externalUnres.slice(0, 100).map(u => h('li', {
+        style: 'padding:0.45rem 0; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:baseline; gap:0.5rem;'
+      },
+        h('div', {},
+          fileLink(u.file),
+          h('span', { class: 'mute mono', style: 'margin-left:0.5rem;' }, `L${u.line} → "${u.spec}"`)
+        ),
+        badge('external')
+      ))
+    ) : h('p', { class: 'mute', style: 'font-size:0.88rem;' }, 'None detected.')
+  );
+
+  // 4. Parse Errors & Skipped
+  const parsePanel = h('div', { class: 'panel' },
+    h('div', { class: 'panel-header' },
+      h('div', {},
+        h('h3', { class: 'panel-title' }, 'Parse &amp; Syntax Errors'),
+        h('p', { class: 'panel-subtitle' }, 'Files that could not be parsed by Python AST or the TypeScript compiler.')
+      ),
+      badge(`${sn.parse_errors.length} errors`, sn.parse_errors.length ? 'bad' : 'ok')
+    ),
+    sn.parse_errors.length ? h('ul', { style: 'display:flex; flex-direction:column; gap:0.4rem;' },
+      sn.parse_errors.map(e => h('li', {
+        style: 'padding:0.45rem 0; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:baseline; gap:0.5rem;'
+      },
+        fileLink(e.file),
+        h('span', { class: 'mono', style: 'color:var(--bad); font-size:0.82rem;' }, e.error)
+      ))
+    ) : h('p', { class: 'mute', style: 'font-size:0.88rem;' }, 'Zero syntax or AST parse errors encountered.')
+  );
+
+  // 5. Ignored & Excluded Counts
+  const sc = sn.ignored_counts || {};
+  const ignoredPanel = h('div', { class: 'panel' },
+    h('h3', { class: 'panel-title', style: 'font-size:0.95rem; margin-bottom:0.5rem;' }, '📁 Scanner Exclusion Statistics'),
+    h('p', { class: 'mute', style: 'font-size:0.85rem;' },
+      `Cleanly omitted during crawl: ${sc.unsupported || 0} non-code files, ${sc.gitignored || 0} .gitignored entries, and ${sc.excluded_dirs || 0} excluded directories (node_modules, .git, venvs, dist).`
+    )
+  );
+
+  add(container, cycPanel, localPanel, extPanel, parsePanel, ignoredPanel);
+  add(m, container);
+}
+
+// -----------------------------------------
+// File & Symbol Drawer (Side Inspector)
+// -----------------------------------------
+async function inspectFile(filePath) {
+  S.sel = filePath;
+  const drawer = $('#drawer');
+  drawer.hidden = false;
+  const f = byPath(filePath);
+  if (!f) return;
+
+  const srcBox = h('div', { id: 'src-box' });
+  const unresolvedHere = (S.snap.unresolved || []).filter(u => u.file === filePath);
+
+  const symItem = d => h('li', {
+    style: 'padding:0.35rem 0; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:center;'
+  },
+    h('button', {
+      class: 'file-link',
+      onclick: () => loadSourceExcerpt(filePath, d.line, srcBox)
+    }, (d.parent ? d.parent + '.' : '') + d.name),
+    h('div', { class: 'row', style: 'gap:0.35rem;' },
+      badge(d.kind),
+      h('span', { class: 'mute mono', style: 'font-size:0.75rem;' }, `L${d.line}`)
+    )
+  );
+
+  put(drawer,
+    h('div', { class: 'row sb' },
+      h('h3', { class: 'mono', style: 'font-size:0.95rem; overflow-wrap:anywhere; font-weight:700;' }, baseName(filePath)),
+      h('button', {
+        class: 'subtle sm',
+        'aria-label': 'Close inspector',
+        onclick: () => {
+          S.sel = null;
+          drawer.hidden = true;
+          if (S.view === 'graph') window.__paintGraph?.();
+        }
+      }, '✕')
+    ),
+    h('div', { class: 'mute mono', style: 'font-size:0.78rem; overflow-wrap:anywhere;' }, filePath),
+    h('div', { class: 'row', style: 'margin:0.25rem 0;' },
+      langDot(f.lang),
+      h('span', { style: 'font-weight:500;' }, f.lang),
+      badge(`${f.loc} lines`),
+      f.entry ? badge(`Entry: ${f.entry.confidence}`, f.entry.confidence) : null
+    ),
+    f.entry ? h('p', { class: 'mute', style: 'font-size:0.8rem; background:var(--surface-subtle); padding:0.4rem; border-radius:var(--r-sm);' }, f.entry.basis.replaceAll('`', '')) : null,
+    f.error ? h('div', { class: 'alert-banner err', style: 'padding:0.5rem;' }, f.error) : null,
+    
+    // Quick Actions
+    h('div', { class: 'row', style: 'margin:0.5rem 0;' },
+      h('button', {
+        class: 'primary sm',
+        onclick: () => {
+          S.impactTarget = filePath;
+          switchView('impact');
+        }
+      }, 'Analyze Impact (BFS)'),
+      h('button', {
+        class: 'sm',
+        onclick: () => loadSourceExcerpt(filePath, 1, srcBox)
+      }, 'View Source')
+    ),
+
+    // Dependencies & Dependents
+    h('div', { class: 'stack', style: 'gap:0.75rem;' },
+      renderDepList('Imports (Dependencies)', f.depends_on),
+      renderDepList('Imported By (Dependents)', f.dependents),
+      f.defs.length ? h('div', {},
+        h('h4', { style: 'font-size:0.82rem; text-transform:uppercase; color:var(--ink-muted); margin-bottom:0.35rem;' }, `Symbols (${f.defs.length})`),
+        h('ul', { style: 'max-height:180px; overflow-y:auto;' }, f.defs.slice(0, 100).map(symItem))
+      ) : null,
+      f.exports?.length ? h('div', {},
+        h('h4', { style: 'font-size:0.82rem; text-transform:uppercase; color:var(--ink-muted); margin-bottom:0.35rem;' }, 'Exports'),
+        h('div', { class: 'row', style: 'gap:0.35rem;' }, f.exports.map(exp => badge(exp.name)))
+      ) : null,
+      unresolvedHere.length ? h('div', {},
+        h('h4', { style: 'font-size:0.82rem; text-transform:uppercase; color:var(--warn); margin-bottom:0.35rem;' }, 'Unresolved Imports'),
+        h('ul', {}, unresolvedHere.map(u => h('li', {
+          style: 'padding:0.3rem 0; border-top:1px solid var(--line); display:flex; justify-content:space-between;'
+        },
+          h('span', { class: 'mono', style: 'font-size:0.8rem;' }, u.spec),
+          badge(u.reason, u.reason.startsWith('external') ? '' : 'warn')
+        )))
+      ) : null,
+      srcBox
+    )
+  );
+
+  if (S.view === 'graph') window.__paintGraph?.();
+}
+
+function renderDepList(title, list) {
+  return h('div', {},
+    h('h4', { style: 'font-size:0.82rem; text-transform:uppercase; color:var(--ink-muted); margin-bottom:0.35rem;' },
+      `${title} (${list.length})`
+    ),
+    list.length ? h('ul', { style: 'max-height:140px; overflow-y:auto;' },
+      list.map(p => h('li', { style: 'padding:0.25rem 0; border-top:1px solid var(--line);' }, fileLink(p)))
+    ) : h('p', { class: 'mute', style: 'font-size:0.82rem;' }, 'None')
+  );
+}
+
+async function loadSourceExcerpt(filePath, targetLine, targetContainer) {
+  try {
+    targetContainer.innerHTML = '<span class="spinner"></span> Loading source excerpt…';
+    const data = await api(`/api/source?path=${encodeURIComponent(filePath)}&line=${targetLine}`);
+    
+    put(targetContainer,
+      h('div', { class: 'row sb', style: 'margin-top:0.75rem;' },
+        h('h4', { style: 'font-size:0.82rem; font-weight:600;' }, `${baseName(data.file)}:${data.line}`),
+        badge(`${data.lines.length} lines shown`)
+      ),
+      h('pre', { class: 'src-view' },
+        data.lines.map((lineText, idx) => {
+          const currentLineNo = data.start + idx;
+          const isTarget = currentLineNo === data.line;
+          return h('span', { class: `line-wrap ${isTarget ? 'hl' : ''}` },
+            h('span', { class: 'line-num' }, currentLineNo),
+            h('span', { class: 'line-text' }, lineText)
+          );
+        })
+      )
+    );
+  } catch (err) {
+    put(targetContainer, h('div', { class: 'alert-banner err', style: 'margin-top:0.5rem;' }, err.message));
+  }
+}
+
+// -----------------------------------------
+// Command Palette (Ctrl+K / ⌘K)
+// -----------------------------------------
+const palModal = $('#cmd-pal');
+const palInput = $('#pal-input');
+const palResults = $('#pal-results');
+let palData = [], palActive = 0, palDebounce;
+
+function openCommandPalette() {
+  if (!S.snap) return;
+  palModal.showModal();
+  palInput.value = '';
+  palResults.replaceChildren();
+  palInput.focus();
+}
+
+$('#kbtn').addEventListener('click', openCommandPalette);
+window.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    palModal.open ? palModal.close() : openCommandPalette();
+  }
+});
+palModal.addEventListener('click', e => {
+  if (e.target === palModal) palModal.close();
+});
+
+function drawPalResults() {
+  palResults.replaceChildren(...palData.map((item, idx) =>
+    h('li', { role: 'option' },
+      h('button', {
+        type: 'button',
+        'aria-selected': idx === palActive ? 'true' : 'false',
+        onclick: () => selectPalItem(item)
+      },
+        h('span', { style: 'font-weight:500;' }, item.name),
+        h('div', { class: 'row', style: 'gap:0.4rem;' },
+          item.type !== 'file' ? h('span', { class: 'mute mono', style: 'font-size:0.78rem;' }, `${baseName(item.file)}:${item.line}`) : null,
+          badge(item.type, item.type === 'file' ? 'accent' : '')
+        )
+      )
+    )
+  ));
+  if (!palData.length && palInput.value.trim()) {
+    palResults.append(h('li', { class: 'mute', style: 'padding:1rem;' }, 'No matching files or symbols found.'));
+  }
+}
+
+function selectPalItem(item) {
+  palModal.close();
+  if (S.view !== 'files' && S.view !== 'graph') switchView('files');
+  inspectFile(item.file).then(() => {
+    if (item.type !== 'file') {
+      const srcBox = $('#src-box');
+      if (srcBox) loadSourceExcerpt(item.file, item.line, srcBox);
+    }
+  });
+}
+
+palInput.addEventListener('input', () => {
+  clearTimeout(palDebounce);
+  palDebounce = setTimeout(async () => {
+    const q = palInput.value.trim();
+    if (!q) { palData = []; drawPalResults(); return; }
+    try {
+      const res = await api(`/api/search?q=${encodeURIComponent(q)}`);
+      palData = res.results || [];
+    } catch {
+      palData = [];
+    }
+    palActive = 0;
+    drawPalResults();
+  }, 120);
+});
+
+palInput.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    palActive = (palActive + (e.key === 'ArrowDown' ? 1 : -1) + palData.length) % Math.max(palData.length, 1);
+    drawPalResults();
+  } else if (e.key === 'Enter' && palData[palActive]) {
+    e.preventDefault();
+    selectPalItem(palData[palActive]);
+  }
+});
+
+// Initialization
+renderNav();
+render();
 </script>
 </body>
 </html>

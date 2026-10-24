@@ -3,14 +3,16 @@ import json, os, sys, threading, urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from repolens import engine
 from repolens.scanner import ScanError
+from repolens.github import clone_github_repo, cleanup_clone, GitHubCloneError, GITHUB_REGEX
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+SAMPLE_PATH = os.path.join(ROOT, 'repolens', 'sample_repo')
 MAX_BODY = 64 * 1024
 CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'"
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'RepoLens/1.0'
+    server_version = 'RepoLens/2.0'
 
     def log_message(self, *a):
         pass
@@ -49,14 +51,23 @@ class Handler(BaseHTTPRequestHandler):
                 with open(os.path.join(ROOT, 'frontend', 'index.html'), 'rb') as f:
                     return self._send(200, f.read(), 'text/html')
             if u.path == '/api/health':
-                return self._send(200, {'status': 'ok'})
+                return self._send(200, {'status': 'ok', 'version': '2.0'})
+            if u.path == '/api/sample':
+                return self._send(200, {
+                    'path': SAMPLE_PATH,
+                    'name': 'sample_repo',
+                    'description': 'Bundled Multi-Language Fixture (Python + TypeScript)'
+                })
             if not u.path.startswith('/api/'):
                 return self._err(404, 'Not found.')
             s = self._snap()
             if s is None:
                 return
             if u.path == '/api/snapshot':
-                return self._send(200, engine.public(s))
+                pub = engine.public(s)
+                if getattr(self.server, 'snapshot_meta', None):
+                    pub.update(self.server.snapshot_meta)
+                return self._send(200, pub)
             if u.path == '/api/search':
                 return self._send(200, {'query': q.get('q', ''), 'results': engine.search(s, q.get('q', ''))})
             if u.path == '/api/impact':
@@ -89,42 +100,102 @@ class Handler(BaseHTTPRequestHandler):
             return self._err(413, 'Request body too large.')
         try:
             body = json.loads(self.rfile.read(n) or b'{}')
-            path = body.get('path') if isinstance(body, dict) else None
         except ValueError:
             return self._err(400, 'Body must be valid JSON.')
-        if not isinstance(path, str):
-            return self._err(400, "Field 'path' (string) is required.")
-        allowed = os.environ.get('REPOLENS_ALLOWED_ROOT')
-        if allowed:
-            real, a = os.path.realpath(os.path.expanduser(path)), os.path.realpath(allowed)
-            if real != a and not real.startswith(a + os.sep):
-                return self._err(403, 'Path is outside the permitted root.')
+        if not isinstance(body, dict):
+            return self._err(400, 'Body must be a JSON object.')
+
+        raw_path = body.get('path')
+        raw_url = body.get('url')
+        source_mode = body.get('mode') or body.get('source')
+
+        # Determine target: check if URL or path matches GitHub repository format
+        target = raw_url if raw_url else raw_path
+        if not isinstance(target, str) or not target.strip():
+            return self._err(400, "Field 'path' or 'url' (string) is required.")
+
+        target = target.strip()
+        is_github = False
+
+        if source_mode == 'github' or raw_url or GITHUB_REGEX.match(target):
+            is_github = True
+
+        cloned_dir = None
+        repo_name = None
+        clone_url = None
+
+        if is_github:
+            try:
+                cloned_dir, repo_name, clone_url = clone_github_repo(target)
+                target_path = cloned_dir
+            except GitHubCloneError as e:
+                return self._err(400, str(e))
+            except Exception as e:
+                return self._err(500, f'Clone failed: {str(e)}')
+        else:
+            target_path = target
+            allowed = os.environ.get('REPOLENS_ALLOWED_ROOT')
+            if allowed:
+                real = os.path.realpath(os.path.expanduser(target_path))
+                a = os.path.realpath(allowed)
+                if real != a and not real.startswith(a + os.sep):
+                    return self._err(403, 'Path is outside the permitted root.')
+
         try:
             with self.server.lock:
-                snap = engine.analyze_repo(path)
+                snap = engine.analyze_repo(target_path)
+                
+                # Cleanup previous clone if one was active
+                if self.server.active_clone and self.server.active_clone != cloned_dir:
+                    cleanup_clone(self.server.active_clone)
+                self.server.active_clone = cloned_dir
+
+                meta = {
+                    'is_github': is_github,
+                    'repo_name': repo_name or os.path.basename(os.path.normpath(target_path)),
+                    'source_path': target if is_github else os.path.realpath(target_path)
+                }
+                if clone_url:
+                    meta['clone_url'] = clone_url
                 self.server.snapshot = snap
-            return self._send(200, engine.public(snap))
+                self.server.snapshot_meta = meta
+
+            pub = engine.public(snap)
+            pub.update(meta)
+            return self._send(200, pub)
         except FileNotFoundError:
+            if cloned_dir:
+                cleanup_clone(cloned_dir)
             return self._err(404, 'Path does not exist.')
         except PermissionError:
+            if cloned_dir:
+                cleanup_clone(cloned_dir)
             return self._err(403, 'Directory is not readable.')
         except ScanError as e:
+            if cloned_dir:
+                cleanup_clone(cloned_dir)
             return self._err(400, str(e))
-        except Exception:
-            return self._err(500, 'Analysis failed unexpectedly.')
+        except Exception as e:
+            if cloned_dir:
+                cleanup_clone(cloned_dir)
+            return self._err(500, f'Analysis failed unexpectedly: {str(e)}')
 
 
 def make_server(host='127.0.0.1', port=8765):
     srv = ThreadingHTTPServer((host, port), Handler)
-    srv.snapshot, srv.lock = None, threading.Lock()
+    srv.snapshot = None
+    srv.snapshot_meta = None
+    srv.active_clone = None
+    srv.lock = threading.Lock()
     return srv
 
 
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
     srv = make_server(port=port)
-    print(f'RepoLens running at http://127.0.0.1:{port}  (Ctrl+C to stop)')
+    print(f'RepoLens V2 running at http://127.0.0.1:{port}  (Ctrl+C to stop)')
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
-        pass
+        if srv.active_clone:
+            cleanup_clone(srv.active_clone)
